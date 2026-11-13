@@ -147,7 +147,8 @@ def test_redirect_required_without_domain(monkeypatch):
 def test_default_base_url_uses_config(monkeypatch):
     from types import SimpleNamespace
 
-    fake = SimpleNamespace(hosting_config=SimpleNamespace(frontend_domain="", domain="lh.local:8080", ssl=False))
+    # frontend_domain defaults to localhost:3000 in LearnHouse; it must be ignored.
+    fake = SimpleNamespace(hosting_config=SimpleNamespace(frontend_domain="localhost:3000", domain="lh.local:8080", ssl=False))
     monkeypatch.setattr("config.config.get_learnhouse_config", lambda: fake)
     assert cfg._default_base_url() == "http://lh.local:8080"
     fake.hosting_config.domain = ""

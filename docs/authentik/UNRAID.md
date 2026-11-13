@@ -92,6 +92,32 @@ docker exec learnhouse-redis redis-cli FLUSHALL   # clears cached lookups; signs
 docker restart learnhouse
 ```
 
+## Troubleshooting: "Organization not found" although the org exists
+
+If `select slug from organization` shows the slug you configured and
+`curl http://<unraid-ip>:<port>/api/v1/instance/info` reports it as
+`default_org_slug`, the web server cannot reach the API through your public
+domain. By default it renders pages by calling `NEXT_PUBLIC_LEARNHOUSE_API_URL`
+(e.g. `https://learn.example.com/api/v1/`), i.e. from inside the container
+out to the internet and back. Check:
+
+```bash
+docker exec learnhouse curl -s -o /dev/null -w "%{http_code}\n" https://learn.example.com/api/v1/instance/info
+```
+
+Anything but `200` (DNS not pointing here yet, reverse proxy not set up,
+Cloudflare in front, a router without hairpin NAT) breaks page rendering.
+
+1. Set `LEARNHOUSE_INTERNAL_API_URL=http://127.0.0.1:9000` (already in the
+   compose file and the Unraid template). Page rendering then stays inside the
+   container.
+2. Sign-in requests still go through the public URL. If the check above is
+   not `200`, make the domain resolve to your reverse proxy *from inside the
+   container*: Unraid **Extra Parameters** `--add-host learn.example.com:<reverse-proxy-LAN-IP>`
+   (compose: `extra_hosts: ["learn.example.com:<reverse-proxy-LAN-IP>"]`).
+3. Browse to the site through that https domain, not `http://<unraid-ip>:<port>`:
+   session cookies are `Secure`, so logins do not stick over plain http.
+
 ## Hardening checklist
 
 - Only the reverse proxy is exposed to the internet; database and Redis have

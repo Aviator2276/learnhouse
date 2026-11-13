@@ -120,12 +120,16 @@ def _validate_url(name: str, value: str, allow_http: bool) -> str:
 
 
 def _default_base_url() -> Optional[str]:
-    """``https://{LEARNHOUSE_DOMAIN}`` from the main LearnHouse config."""
+    """``https://{LEARNHOUSE_DOMAIN}`` from the main LearnHouse config.
+
+    Uses ``domain``, not ``frontend_domain``: the latter silently defaults to
+    ``localhost:3000`` when LEARNHOUSE_FRONTEND_DOMAIN is unset.
+    """
     try:
         from config.config import get_learnhouse_config
 
         cfg = get_learnhouse_config()
-        domain = cfg.hosting_config.frontend_domain or cfg.hosting_config.domain
+        domain = cfg.hosting_config.domain
         ssl = bool(getattr(cfg.hosting_config, "ssl", True))
     except Exception:  # pragma: no cover - config import is exercised elsewhere
         return None

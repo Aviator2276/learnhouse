@@ -43,6 +43,7 @@
   <Config Name="Multi org" Target="NEXT_PUBLIC_LEARNHOUSE_MULTI_ORG" Default="False" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">False</Config>
   <Config Name="Default org slug" Target="NEXT_PUBLIC_LEARNHOUSE_DEFAULT_ORG" Default="default" Mode="" Description="Must equal Initial org slug. The org is created once, on first start; changing this later does not rename it." Type="Variable" Display="advanced" Required="true" Mask="false">default</Config>
   <Config Name="Internal API URL" Target="LEARNHOUSE_API_URL" Default="http://localhost:9000" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">http://localhost:9000</Config>
+  <Config Name="Internal API URL (server-side)" Target="LEARNHOUSE_INTERNAL_API_URL" Default="http://127.0.0.1:9000" Mode="" Description="Page rendering reaches the API inside the container instead of via the public domain. Leave as is." Type="Variable" Display="advanced" Required="true" Mask="false">http://127.0.0.1:9000</Config>
   <Config Name="Hostname" Target="HOSTNAME" Default="0.0.0.0" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">0.0.0.0</Config>
 
   <Config Name="PostgreSQL connection" Target="LEARNHOUSE_SQL_CONNECTION_STRING" Default="postgresql://learnhouse:PASSWORD@learnhouse-db:5432/learnhouse" Mode="" Description="pgvector/pgvector:pg16 container on the same network." Type="Variable" Display="always" Required="true" Mask="true"/>

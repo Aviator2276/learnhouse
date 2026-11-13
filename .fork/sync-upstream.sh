@@ -61,6 +61,18 @@ set -e
 git ls-files -- .github/workflows | sort -u | { grep -v '^\.github/workflows/fork-' || true; } \
   | xargs -r git rm -q -f --ignore-unmatch --
 
+# The fork may run a newer Python patch release than upstream pins (to ship
+# security fixes sooner). When upstream changes its own pin, those lines
+# conflict: take upstream's pin for ALL of these files together (they must
+# agree with each other), dropping the fork's bump. If upstream's version is
+# still vulnerable, the publish scan reopens the security issue.
+PYTHON_PIN_FILES=(Dockerfile apps/api/Dockerfile apps/api/pyproject.toml apps/api/uv.lock)
+if git diff --name-only --diff-filter=U | grep -qxF -f <(printf '%s\n' "${PYTHON_PIN_FILES[@]}"); then
+  echo "Upstream changed its Python pin; taking upstream's version of: ${PYTHON_PIN_FILES[*]}"
+  git checkout "refs/tags/${target}" -- "${PYTHON_PIN_FILES[@]}"
+  git add -- "${PYTHON_PIN_FILES[@]}"
+fi
+
 conflicts=$(git diff --name-only --diff-filter=U || true)
 if [ -n "$conflicts" ]; then
   echo "::error::Merging ${target} left conflicts that need a human:"

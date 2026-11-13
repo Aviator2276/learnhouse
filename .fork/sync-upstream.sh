@@ -83,6 +83,20 @@ if grep -qxF -f <(printf '%s\n' "${PYTHON_PIN_FILES[@]}") <<<"$unmerged"; then
   git add -- "${PYTHON_PIN_FILES[@]}"
 fi
 
+# Fork patch: the bundled nginx must reach the app's services over IPv4
+# loopback. "localhost" resolves to ::1 first on IPv6-enabled Docker hosts,
+# where the services (bound to 0.0.0.0) refuse, and nginx never retries a POST
+# on the next address: every login would answer 502. Re-applied on every
+# merge (taking upstream's file first if it conflicts), so it survives updates.
+NGINX_CONF=docker/nginx.conf
+if grep -qxF "$NGINX_CONF" <<<"$(git diff --name-only --diff-filter=U || true)"; then
+  git checkout "refs/tags/${target}" -- "$NGINX_CONF"
+fi
+if [ -f "$NGINX_CONF" ]; then
+  sed -i 's#proxy_pass http://localhost:#proxy_pass http://127.0.0.1:#' "$NGINX_CONF"
+  git add -- "$NGINX_CONF"
+fi
+
 conflicts=$(git diff --name-only --diff-filter=U || true)
 if [ -n "$conflicts" ]; then
   echo "::error::Merging ${target} left conflicts that need a human:"

@@ -184,6 +184,7 @@ new files.
 | `apps/web/app/auth/login/login.tsx`, `signup/*.tsx` | the button |
 | `apps/web/components/Contexts/AuthContext.tsx` | single logout |
 | `Dockerfile`, `apps/api/Dockerfile`, `apps/api/pyproject.toml`, `apps/api/uv.lock` | Python patch version (auto-resolved on sync) |
+| `docker/nginx.conf` | internal upstreams use `127.0.0.1` instead of `localhost` (POSTs failed with 502 on IPv6-enabled Docker hosts); re-applied automatically after every sync |
 
 Fork-only files: `apps/api/src/services/auth/authentik/`,
 `apps/api/src/routers/authentik.py`, `apps/api/src/db/user_identities.py`,

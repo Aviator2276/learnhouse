@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<!--
+  Unraid Docker template for LearnHouse with Authentik sign-in.
+  Install: copy to /boot/config/plugins/dockerMan/templates-user/ on the Unraid
+  flash drive, then Docker > Add Container > Template: learnhouse-authentik.
+
+  Needs a PostgreSQL with pgvector (pgvector/pgvector:pg16) and Redis
+  container on the same custom Docker network, and a TLS reverse proxy.
+  See docs/authentik/UNRAID.md.
+-->
+<Container version="2">
+  <Name>learnhouse-authentik</Name>
+  <Repository>ghcr.io/aviator2276/learnhouse:latest</Repository>
+  <Registry>https://github.com/Aviator2276/learnhouse/pkgs/container/learnhouse</Registry>
+  <Network>learnhouse</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/Aviator2276/learnhouse/issues</Support>
+  <Project>https://github.com/Aviator2276/learnhouse</Project>
+  <Overview>LearnHouse (open source LMS) with Authentik OpenID Connect single sign-on. Rebuilt automatically for every LearnHouse release and weekly for security patches.</Overview>
+  <Category>Productivity: Tools: Network:Web</Category>
+  <WebUI>http://[IP]:[PORT:80]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/Aviator2276/learnhouse/main/deploy/unraid/learnhouse-authentik.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/Aviator2276/learnhouse/main/apps/web/public/learnhouse_icon.png</Icon>
+  <ExtraParams>--security-opt no-new-privileges:true --health-cmd "curl -fsS http://localhost/api/v1/health || exit 1" --health-interval 30s --health-start-period 90s</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <Requires>PostgreSQL with pgvector (pgvector/pgvector:pg16) and Redis 7 on the same Docker network; a reverse proxy with TLS.</Requires>
+
+  <Config Name="Web port" Target="80" Default="8080" Mode="tcp" Description="Point your TLS reverse proxy here." Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+  <Config Name="Content" Target="/app/api/content" Default="/mnt/user/appdata/learnhouse/content" Mode="rw" Description="Uploaded course content." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/learnhouse/content</Config>
+
+  <Config Name="Public domain" Target="LEARNHOUSE_DOMAIN" Default="" Mode="" Description="Hostname users visit, e.g. learn.example.com (no https://)." Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="API URL (public)" Target="NEXT_PUBLIC_LEARNHOUSE_API_URL" Default="" Mode="" Description="https://learn.example.com/api/v1/" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Backend URL (public)" Target="NEXT_PUBLIC_LEARNHOUSE_BACKEND_URL" Default="" Mode="" Description="https://learn.example.com/" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Domain (frontend)" Target="NEXT_PUBLIC_LEARNHOUSE_DOMAIN" Default="" Mode="" Description="Same as Public domain." Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Top domain" Target="NEXT_PUBLIC_LEARNHOUSE_TOP_DOMAIN" Default="" Mode="" Description="e.g. example.com" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Collab URL" Target="NEXT_PUBLIC_COLLAB_URL" Default="" Mode="" Description="wss://learn.example.com/collab" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="NextAuth URL" Target="NEXTAUTH_URL" Default="" Mode="" Description="https://learn.example.com" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Cookie domain" Target="LEARNHOUSE_COOKIE_DOMAIN" Default="" Mode="" Description=".example.com" Type="Variable" Display="advanced" Required="true" Mask="false"/>
+  <Config Name="HTTPS" Target="NEXT_PUBLIC_LEARNHOUSE_HTTPS" Default="True" Mode="" Description="Keep True behind a TLS proxy." Type="Variable" Display="advanced" Required="true" Mask="false">True</Config>
+  <Config Name="Multi org" Target="NEXT_PUBLIC_LEARNHOUSE_MULTI_ORG" Default="False" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">False</Config>
+  <Config Name="Default org slug" Target="NEXT_PUBLIC_LEARNHOUSE_DEFAULT_ORG" Default="default" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">default</Config>
+  <Config Name="Internal API URL" Target="LEARNHOUSE_API_URL" Default="http://localhost:9000" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">http://localhost:9000</Config>
+  <Config Name="Hostname" Target="HOSTNAME" Default="0.0.0.0" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">0.0.0.0</Config>
+
+  <Config Name="PostgreSQL connection" Target="LEARNHOUSE_SQL_CONNECTION_STRING" Default="postgresql://learnhouse:PASSWORD@learnhouse-db:5432/learnhouse" Mode="" Description="pgvector/pgvector:pg16 container on the same network." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Redis connection" Target="LEARNHOUSE_REDIS_CONNECTION_STRING" Default="redis://learnhouse-redis:6379/0" Mode="" Description="" Type="Variable" Display="always" Required="true" Mask="false">redis://learnhouse-redis:6379/0</Config>
+  <Config Name="Redis URL (collab)" Target="LEARNHOUSE_REDIS_URL" Default="redis://learnhouse-redis:6379" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">redis://learnhouse-redis:6379</Config>
+
+  <Config Name="JWT secret" Target="LEARNHOUSE_AUTH_JWT_SECRET_KEY" Default="" Mode="" Description="openssl rand -base64 32" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="NextAuth secret" Target="NEXTAUTH_SECRET" Default="" Mode="" Description="openssl rand -base64 32 (different from the JWT secret)" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Collab internal key" Target="COLLAB_INTERNAL_KEY" Default="" Mode="" Description="openssl rand -base64 32" Type="Variable" Display="always" Required="true" Mask="true"/>
+
+  <Config Name="Initial admin email" Target="LEARNHOUSE_INITIAL_ADMIN_EMAIL" Default="" Mode="" Description="Used on first start only." Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Initial admin password" Target="LEARNHOUSE_INITIAL_ADMIN_PASSWORD" Default="" Mode="" Description="Used on first start only." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Initial org name" Target="LEARNHOUSE_INITIAL_ORG_NAME" Default="My Organization" Mode="" Description="" Type="Variable" Display="advanced" Required="false" Mask="false">My Organization</Config>
+  <Config Name="Initial org slug" Target="LEARNHOUSE_INITIAL_ORG_SLUG" Default="default" Mode="" Description="" Type="Variable" Display="advanced" Required="false" Mask="false">default</Config>
+
+  <Config Name="Authentik: enabled" Target="LEARNHOUSE_AUTHENTIK_ENABLED" Default="true" Mode="" Description="" Type="Variable" Display="always" Required="true" Mask="false">true</Config>
+  <Config Name="Authentik: issuer" Target="LEARNHOUSE_AUTHENTIK_ISSUER" Default="" Mode="" Description="Provider's OpenID Configuration Issuer, e.g. https://auth.example.com/application/o/learnhouse/" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Authentik: client ID" Target="LEARNHOUSE_AUTHENTIK_CLIENT_ID" Default="" Mode="" Description="" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Authentik: client secret" Target="LEARNHOUSE_AUTHENTIK_CLIENT_SECRET" Default="" Mode="" Description="Confidential client secret." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Authentik: redirect URI" Target="LEARNHOUSE_AUTHENTIK_REDIRECT_URI" Default="" Mode="" Description="https://learn.example.com/auth/callback/authentik (register exactly this in Authentik)" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Authentik: button label" Target="LEARNHOUSE_AUTHENTIK_DISPLAY_NAME" Default="Authentik" Mode="" Description="" Type="Variable" Display="advanced" Required="false" Mask="false">Authentik</Config>
+  <Config Name="Authentik: allowed groups" Target="LEARNHOUSE_AUTHENTIK_ALLOWED_GROUPS" Default="" Mode="" Description="Comma separated; empty = any user Authentik lets through." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Authentik: role mapping" Target="LEARNHOUSE_AUTHENTIK_ROLE_MAPPING" Default="" Mode="" Description="group=admin|maintainer|instructor|user, comma separated" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Authentik: auto provision" Target="LEARNHOUSE_AUTHENTIK_AUTO_PROVISION" Default="true" Mode="" Description="Create accounts on first sign-in." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="Authentik: bypass invites" Target="LEARNHOUSE_AUTHENTIK_BYPASS_INVITE" Default="false" Mode="" Description="Let Authentik users join invite-only orgs." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+
+  <Config Name="Development mode" Target="LEARNHOUSE_DEVELOPMENT_MODE" Default="False" Mode="" Description="Never True in production." Type="Variable" Display="advanced" Required="true" Mask="false">False</Config>
+  <Config Name="Content delivery" Target="LEARNHOUSE_CONTENT_DELIVERY_TYPE" Default="filesystem" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">filesystem</Config>
+</Container>

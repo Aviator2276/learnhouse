@@ -64,6 +64,8 @@ AUTH_METHOD_PASSWORD = "password"
 AUTH_METHOD_MAGIC_LOGIN = "magic_login"
 AUTH_METHOD_GOOGLE = "google"
 AUTH_METHOD_SSO = "sso"
+# Fork: Authentik OpenID Connect sign-in (src/services/auth/authentik).
+AUTH_METHOD_AUTHENTIK = "authentik"
 AUTH_METHOD_API_TOKEN = "api_token"
 # A launch from an LMS the org registered as an LTI platform. Not an
 # admin-selectable method: the org opts in by registering the platform, and
@@ -76,6 +78,7 @@ POLICY_AUTH_METHODS = (
     AUTH_METHOD_MAGIC_LOGIN,
     AUTH_METHOD_GOOGLE,
     AUTH_METHOD_SSO,
+    AUTH_METHOD_AUTHENTIK,
 )
 
 

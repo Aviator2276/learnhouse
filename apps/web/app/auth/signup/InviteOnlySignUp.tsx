@@ -23,6 +23,7 @@ import CustomSignupFields, {
   validateCustomFields,
 } from '@components/Auth/CustomSignupFields'
 import { readSignupFields, type SignupFieldItem } from '@services/settings/org'
+import AuthentikSignInButton from '@components/Auth/AuthentikSignInButton' // Fork: Authentik
 
 const validate = (values: any, t: any, customFields: SignupFieldItem[]) => {
   const errors: any = {}
@@ -371,6 +372,11 @@ function InviteOnlySignUpComponent(props: InviteOnlySignUpProps) {
           <div className="relative flex justify-center text-sm">
             <span className="px-3 text-black/30 bg-white text-xs font-medium">{t('common.or')}</span>
           </div>
+        </div>
+
+        {/* Fork: Authentik */}
+        <div className="mb-2.5">
+          <AuthentikSignInButton org={org} next={buildCallbackUrl} inviteCode={props.inviteCode} disabled={isSubmitting} />
         </div>
 
         {/* Google Sign In */}

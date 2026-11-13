@@ -82,6 +82,7 @@ const EXTERNAL_AUTH_METHODS = [
   'keycloak',
   'okta',
   'auth0',
+  'authentik',
 ]
 
 export const GRACE_OPTIONS = [0, 7, 14, 30]
@@ -89,7 +90,7 @@ export const GRACE_OPTIONS = [0, 7, 14, 30]
 // The complete set of sign-in methods. Selecting all of them = unrestricted,
 // which is also what an absent policy falls back to. Kept in sync with the
 // backend's allowed_auth_methods contract.
-export const ALL_AUTH_METHODS = ['password', 'magic_login', 'google', 'sso'] as const
+export const ALL_AUTH_METHODS = ['password', 'magic_login', 'google', 'sso', 'authentik'] as const
 
 export const AUTH_METHOD_OPTIONS: {
   key: string
@@ -125,6 +126,15 @@ export const AUTH_METHOD_OPTIONS: {
     labelDefault: 'SSO',
     hintKey: 'dashboard.organization.security.method_sso_hint',
     hintDefault: 'Sign in through your configured single sign-on provider.',
+  },
+  // Fork: Authentik OpenID Connect sign-in. Uncheck every other method to make
+  // Authentik the only way into this organization.
+  {
+    key: 'authentik',
+    labelKey: 'dashboard.organization.security.method_authentik',
+    labelDefault: 'Authentik',
+    hintKey: 'dashboard.organization.security.method_authentik_hint',
+    hintDefault: 'Sign in through this instance\u2019s Authentik identity provider.',
   },
 ]
 

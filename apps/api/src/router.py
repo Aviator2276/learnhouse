@@ -16,6 +16,7 @@ from src.routers import nudges as nudges_router_module
 from src.routers import stream
 from src.routers import api_tokens
 from src.routers import mcp_oauth
+from src.routers import authentik  # Fork: Authentik sign-in
 from src.routers import calendar as calendar_router_module
 from src.routers import webhooks
 from src.routers.integrations import zapier as zapier_integration
@@ -92,6 +93,8 @@ v1_router.include_router(
         Depends(require_plan_for_usergroups("standard", "User Groups")),
     ],
 )
+# Fork: Authentik OpenID Connect sign-in (mounted first so no /auth route shadows it).
+v1_router.include_router(authentik.router, prefix="/auth/authentik", tags=["auth"])
 v1_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 # Two-factor: enrollment/management plus the /auth/login/mfa challenge.
 v1_router.include_router(mfa_router_module.router, prefix="/auth", tags=["auth"])

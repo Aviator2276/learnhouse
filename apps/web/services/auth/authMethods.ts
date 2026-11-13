@@ -10,7 +10,7 @@
  * render. It is a convenience, never the enforcement.
  */
 
-export const ALL_AUTH_METHODS = ['password', 'magic_login', 'google', 'sso'] as const
+export const ALL_AUTH_METHODS = ['password', 'magic_login', 'google', 'sso', 'authentik'] as const
 
 export type AuthMethod = (typeof ALL_AUTH_METHODS)[number]
 

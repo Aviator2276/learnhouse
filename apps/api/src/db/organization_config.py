@@ -161,7 +161,7 @@ class SecurityAdminToggle(BaseModel):
     # "password" | "magic_login" | "google" | "sso". Empty list is treated as
     # "unrestricted" too, so a mis-save can never lock every method out.
     allowed_auth_methods: list[str] = Field(
-        default_factory=lambda: ["password", "magic_login", "google", "sso"]
+        default_factory=lambda: ["password", "magic_login", "google", "sso", "authentik"]
     )
     # Whether a session established on the central apex (learnhouse.io) or for a
     # different org may be used to access this org directly. Default True keeps

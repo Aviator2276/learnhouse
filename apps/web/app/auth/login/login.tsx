@@ -20,6 +20,7 @@ import AuthLayout from '@components/Auth/AuthLayout'
 import TurnstileWidget, { useTurnstileRequired, verifyTurnstileToken, type TurnstileWidgetHandle } from '@components/Auth/TurnstileWidget'
 import { useLHAnalytics, AnalyticsEvent } from '@services/analytics'
 import { getAllowedAuthMethods } from '@services/auth/authMethods'
+import AuthentikSignInButton, { useAuthentikAvailable } from '@components/Auth/AuthentikSignInButton' // Fork: Authentik
 
 interface LoginClientProps {
   org: any
@@ -50,7 +51,8 @@ const LoginClient = (props: LoginClientProps) => {
   const googleAllowed = allowedMethods.has('google')
   const ssoAllowed = allowedMethods.has('sso')
   // SSO counts only once it is actually configured for the org (ssoEnabled).
-  const hasAlternativeMethods = googleAllowed || magicLoginAllowed || (ssoAllowed && ssoEnabled)
+  const authentikAvailable = useAuthentikAvailable(props.org).enabled // Fork: Authentik
+  const hasAlternativeMethods = googleAllowed || magicLoginAllowed || (ssoAllowed && ssoEnabled) || authentikAvailable
 
 
   // Error state with type information
@@ -834,6 +836,8 @@ const LoginClient = (props: LoginClientProps) => {
 
               {/* Social & SSO Buttons */}
               <div className="space-y-2.5">
+                {/* Fork: Authentik */}
+                <AuthentikSignInButton org={props.org} next={buildCallbackUrl} disabled={isSubmitting} />
                 {googleAllowed && (
                 <button
                   onClick={handleGoogleSignIn}

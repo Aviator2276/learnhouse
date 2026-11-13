@@ -1,0 +1,103 @@
+# LearnHouse + Authentik on Unraid (or any Docker host), amd64.
+#
+#   cp deploy/.env.example deploy/.env      # fill in every CHANGE_ME
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
+#
+# On Unraid: install the "Docker Compose Manager" plugin, create a stack, and
+# paste this file plus your .env. Put your reverse proxy (SWAG, Nginx Proxy
+# Manager, Traefik...) in front of port ${HTTP_PORT} with TLS; Authentik
+# requires https redirect URIs and LearnHouse marks its cookies Secure.
+#
+# Updates: the image tag :latest is rebuilt by CI for every LearnHouse release
+# and weekly for OS security patches. Either let Unraid's "Check for Updates"
+# / CA Auto Update handle it, or enable the watchtower profile:
+#   docker compose ... --profile autoupdate up -d
+name: learnhouse
+
+services:
+  learnhouse:
+    image: ${LEARNHOUSE_IMAGE:-ghcr.io/aviator2276/learnhouse:latest}
+    container_name: learnhouse
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HOSTNAME: 0.0.0.0
+      LEARNHOUSE_API_URL: http://localhost:9000
+      LEARNHOUSE_SQL_CONNECTION_STRING: postgresql://learnhouse:${POSTGRES_PASSWORD}@db:5432/learnhouse
+      LEARNHOUSE_REDIS_CONNECTION_STRING: redis://redis:6379/0
+      LEARNHOUSE_REDIS_URL: redis://redis:6379
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ${APPDATA:-/mnt/user/appdata/learnhouse}/content:/app/api/content
+      # Optional: Authentik client secret as a file instead of an env var.
+      # - ${APPDATA:-/mnt/user/appdata/learnhouse}/secrets/authentik_client_secret:/run/secrets/authentik_client_secret:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    networks: [learnhouse]
+
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: learnhouse-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: learnhouse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: learnhouse
+    volumes:
+      - ${APPDATA:-/mnt/user/appdata/learnhouse}/postgres:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U learnhouse"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+    # No published port: only reachable from the learnhouse network.
+    networks: [learnhouse]
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: learnhouse-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ${APPDATA:-/mnt/user/appdata/learnhouse}/redis:/data
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+    networks: [learnhouse]
+
+  # Optional automatic updates of the LearnHouse container only (label-scoped).
+  watchtower:
+    profiles: ["autoupdate"]
+    image: containrrr/watchtower:1.7.1
+    container_name: learnhouse-watchtower
+    restart: unless-stopped
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_SCHEDULE: "0 30 4 * * *" # 04:30 daily
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+networks:
+  learnhouse:
+    driver: bridge

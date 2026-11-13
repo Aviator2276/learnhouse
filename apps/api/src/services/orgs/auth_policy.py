@@ -110,6 +110,7 @@ def _method_label(method: str) -> str:
         "magic_login": "a magic login link",
         "google": "Google",
         "sso": "single sign-on (SSO)",
+        "authentik": "Authentik",
     }.get(method, method)
 
 

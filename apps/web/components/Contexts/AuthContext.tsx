@@ -19,6 +19,7 @@ import { safeRedirectUrl } from '@services/auth/redirects'
 import i18n from '@/lib/i18n'
 import { safeExternalUrl } from '@services/security/url'
 import { AUTH_EXPIRED_EVENT, AUTH_REFRESHED_EVENT } from '@/lib/auth/events'
+import { consumeAuthentikLogoutUrl } from '@services/auth/authentik' // Fork: Authentik
 
 // Types matching NextAuth's session structure
 export interface Session {
@@ -1076,7 +1077,9 @@ export function SessionProvider({
     broadcastChannelRef.current?.postMessage({ type: 'LOGOUT' })
 
     if (redirect) {
-      window.location.href = safeRedirectUrl(callbackUrl)
+      // Fork: an Authentik session also ends at Authentik (single logout).
+      const authentikLogout = safeExternalUrl(await consumeAuthentikLogoutUrl())
+      window.location.href = authentikLogout || safeRedirectUrl(callbackUrl)
     }
 
     // If backend logout failed, log a warning (user is still logged out locally)
@@ -1350,7 +1353,9 @@ export async function signOut(options?: SignOutOptions): Promise<void> {
   }
 
   if (redirect) {
-    window.location.href = safeRedirectUrl(callbackUrl)
+    // Fork: an Authentik session also ends at Authentik (single logout).
+    const authentikLogout = safeExternalUrl(await consumeAuthentikLogoutUrl())
+    window.location.href = authentikLogout || safeRedirectUrl(callbackUrl)
   }
 }
 

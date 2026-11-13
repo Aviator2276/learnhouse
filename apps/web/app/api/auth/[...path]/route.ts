@@ -18,7 +18,7 @@ const BACKEND_URL = (getConfig('NEXT_PUBLIC_LEARNHOUSE_BACKEND_URL') || 'http://
 // it returns tokens just like login/signup and its cookies must be mirrored.
 // `magic-link` covers /magic-link/verify, which mints a session (or an mfa_token)
 // from a passwordless login link.
-const TOKEN_RESPONSE_PATHS = ['login', 'refresh', 'oauth', 'signup', 'verify-email', 'magic-link', 'mfa/confirm', 'mfa/disable']
+const TOKEN_RESPONSE_PATHS = ['login', 'refresh', 'oauth', 'signup', 'verify-email', 'magic-link', 'mfa/confirm', 'mfa/disable', 'authentik/callback']
 
 function shouldExtractTokens(path: string): boolean {
   return TOKEN_RESPONSE_PATHS.some(p => path.startsWith(p))

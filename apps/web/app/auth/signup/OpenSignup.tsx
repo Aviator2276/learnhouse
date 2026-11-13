@@ -18,6 +18,7 @@ import { PasswordStrengthIndicator, validatePasswordStrength } from '@components
 import TurnstileWidget, { useTurnstileRequired, type TurnstileWidgetHandle } from '@components/Auth/TurnstileWidget'
 import { useLHAnalytics, AnalyticsEvent } from '@services/analytics'
 import { getAllowedAuthMethods } from '@services/auth/authMethods'
+import AuthentikSignInButton, { useAuthentikAvailable } from '@components/Auth/AuthentikSignInButton' // Fork: Authentik
 import { defaultPostAuthPath } from '@services/auth/redirects'
 import CustomSignupFields, {
   initialCustomFieldValues,
@@ -87,6 +88,7 @@ function OpenSignUpComponent({ org: propOrg }: OpenSignUpComponentProps = {}) {
   const allowedMethods = React.useMemo(() => getAllowedAuthMethods(org), [org])
   const passwordAllowed = allowedMethods.has('password')
   const googleAllowed = allowedMethods.has('google')
+  const authentikAvailable = useAuthentikAvailable(org).enabled // Fork: Authentik
 
   // Field definitions ship with the org config the page already loaded, so no
   // extra request is needed to render them.
@@ -399,7 +401,7 @@ function OpenSignUpComponent({ org: propOrg }: OpenSignUpComponentProps = {}) {
         )}
 
         {/* Divider: only earns its place between two sets of options. */}
-        {passwordAllowed && googleAllowed && (
+        {passwordAllowed && (googleAllowed || authentikAvailable) && (
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-neutral-200" />
@@ -409,6 +411,11 @@ function OpenSignUpComponent({ org: propOrg }: OpenSignUpComponentProps = {}) {
             </div>
           </div>
         )}
+
+        {/* Fork: Authentik */}
+        <div className="mb-2.5">
+          <AuthentikSignInButton org={org} next={buildCallbackUrl} disabled={isSubmitting} />
+        </div>
 
         {/* Google Sign In */}
         {googleAllowed && (
@@ -422,7 +429,7 @@ function OpenSignUpComponent({ org: propOrg }: OpenSignUpComponentProps = {}) {
         </button>
         )}
 
-        {!passwordAllowed && !googleAllowed && (
+        {!passwordAllowed && !googleAllowed && !authentikAvailable && (
           <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 flex items-start gap-3">
             <Info size={16} className="shrink-0 mt-0.5 text-black/40" />
             <p className="text-sm text-black/60">

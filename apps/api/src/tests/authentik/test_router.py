@@ -155,7 +155,7 @@ async def test_first_login_provisions_and_links(db, env):
     assert user.email == "alice@example.com" and user.signup_method == "authentik"
     assert user.first_name == "Alice" and user.username.startswith("alice")
     links = await _links(db)
-    assert [(l.issuer, l.subject, l.user_id) for l in links] == [(ISSUER.rstrip("/") + "/", "ak-sub-123", user.id)]
+    assert [(link.issuer, link.subject, link.user_id) for link in links] == [(ISSUER.rstrip("/") + "/", "ak-sub-123", user.id)]
     # Nothing from Authentik is handed back to the browser.
     body = json.dumps(result, default=str)
     assert "ak-access-token" not in body and env.idp.nonce not in body

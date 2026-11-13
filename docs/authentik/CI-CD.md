@@ -58,6 +58,21 @@ your Actions minutes.
 
 ## One-time setup (about 10 minutes)
 
+Do the steps **in this order**: GitHub only offers a status check in the
+ruleset picker after that check has run at least once.
+
+### 0. Enable Actions on the fork, then run CI once
+
+GitHub disables workflows on every new fork.
+
+1. **Actions** tab → **"I understand my workflows, go ahead and enable them"**.
+2. **Settings → Actions → General → Actions permissions**: **Allow all actions
+   and reusable workflows** (every action is pinned to a commit SHA, and CI
+   checks that).
+3. Open a pull request from the feature branch into `main`. The **CI**
+   workflow runs on it; when it finishes, a check named **`required`** exists
+   and can be selected in step 3 below. Merge the PR once it is green.
+
 ### 1. Sync token: `FORK_SYNC_TOKEN`
 
 GitHub's built-in `GITHUB_TOKEN` cannot do this job: it may not push commits
@@ -98,8 +113,8 @@ New repository secret**, name `FORK_SYNC_TOKEN`.
 - ✔ Restrict deletions, ✔ Block force pushes
 - ✔ **Require a pull request before merging** (0 approvals is fine for a solo
   repo; auto-merge needs no human then)
-- ✔ **Require status checks to pass** → add **`required`** (from the *CI*
-  workflow). Optionally ✔ *Require branches to be up to date*.
+- ✔ **Require status checks to pass** → **Add checks** → search
+  **`required`** (it only appears after CI has run once, see step 0). Optionally ✔ *Require branches to be up to date*.
 - Bypass list: leave empty (or add yourself as *Repository admin* if you want
   an emergency override).
 

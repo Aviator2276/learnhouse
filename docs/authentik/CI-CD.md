@@ -63,13 +63,20 @@ ruleset picker after that check has run at least once.
 
 ### 0. Enable Actions on the fork, then run CI once
 
-GitHub disables workflows on every new fork.
+GitHub disables workflows on every new fork. A fork also inherits upstream's
+default branch (`dev`, their unreleased work); this fork tracks stable
+releases on **`main`** instead.
+
+0. **Settings → General → Default branch** → switch to **`main`**. Scheduled
+   workflows (daily sync, weekly rebuild, CodeQL) only run from the default
+   branch, and PRs must target `main`. Never merge into `dev`: it contains
+   unreleased upstream code. You may delete `dev`.
 
 1. **Actions** tab → **"I understand my workflows, go ahead and enable them"**.
 2. **Settings → Actions → General → Actions permissions**: **Allow all actions
    and reusable workflows** (every action is pinned to a commit SHA, and CI
    checks that).
-3. Open a pull request from the feature branch into `main`. The **CI**
+3. Open a pull request from the feature branch into **`main`** (not `dev`). The **CI**
    workflow runs on it; when it finishes, a check named **`required`** exists
    and can be selected in step 3 below. Merge the PR once it is green.
 

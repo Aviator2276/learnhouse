@@ -10,6 +10,7 @@ from sqlalchemy import update
 from sqlmodel import select
 
 from src.db.course_embeddings import CourseEmbedding
+from src.db.courses.activities import Activity
 from src.db.courses.chapters import Chapter
 from src.db.courses.courses import Course
 from src.db.organization_config import OrganizationConfig
@@ -84,8 +85,13 @@ class TestSweep:
         await _page(session, org, course, chapter, 11)
         await pipeline.run_course(course.id)
 
-        activity.update_date = _later()
-        session.add(activity)
+        # A plain UPDATE, not an ORM edit: the content-date hook would also
+        # stamp the course with "now", and when that lands in the second after
+        # indexing (the sweep compares whole seconds) the course rightly reads
+        # as changed too, failing this test about once in 30 runs.
+        await session.execute(
+            update(Activity).where(Activity.id == activity.id).values(update_date=_later())
+        )
         await session.commit()
 
         result = await scheduler.sweep(session)

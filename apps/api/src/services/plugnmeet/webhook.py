@@ -25,6 +25,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.live_classes import LiveClass, LiveClassAttendance
 from src.db.user_organizations import UserOrganization
 from src.db.users import User
+from src.services.plugnmeet.classes import user_uuid_from_plugnmeet_id
 from src.services.plugnmeet.config import PlugNmeetSettings
 
 logger = logging.getLogger(__name__)
@@ -94,9 +95,12 @@ async def _class_for_room(db: AsyncSession, room_id: Any) -> Optional[LiveClass]
 
 
 async def _member(db: AsyncSession, identity: Any, org_id: int) -> Optional[User]:
-    if not isinstance(identity, str) or not identity:
+    if not isinstance(identity, str):
         return None
-    user = (await db.execute(select(User).where(User.user_uuid == identity))).scalars().first()
+    user_uuid = user_uuid_from_plugnmeet_id(identity)
+    if user_uuid is None:
+        return None
+    user = (await db.execute(select(User).where(User.user_uuid == user_uuid))).scalars().first()
     if user is None:
         return None
     membership = (await db.execute(

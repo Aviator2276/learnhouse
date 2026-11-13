@@ -448,10 +448,24 @@ def display_name(user: User) -> str:
     return (name or user.username or "Member")[:64]
 
 
+# plugNmeet reserves user ids starting with "user_" for itself and refuses
+# them, which is exactly how LearnHouse user UUIDs start.
+PLUGNMEET_USER_PREFIX = "lh_"
+
+
 def plugnmeet_user_id(user: User) -> str:
-    """Deterministic per user and reversible (it is the user's UUID), so a
-    reconnect replaces the stale session and attendance maps straight back."""
-    return safe_id(user.user_uuid)
+    """``lh_<uuid>``: deterministic per user and reversible, so a reconnect
+    replaces the stale session and attendance maps straight back
+    (``user_uuid_from_plugnmeet_id``)."""
+    return safe_id(PLUGNMEET_USER_PREFIX + user.user_uuid.removeprefix("user_"), max_len=80)
+
+
+def user_uuid_from_plugnmeet_id(identity: str) -> Optional[str]:
+    """The LearnHouse user UUID behind ``plugnmeet_user_id``, or None for
+    identities LearnHouse did not issue."""
+    if not identity.startswith(PLUGNMEET_USER_PREFIX) or len(identity) == len(PLUGNMEET_USER_PREFIX):
+        return None
+    return "user_" + identity[len(PLUGNMEET_USER_PREFIX):]
 
 
 def _lock(room_id: str) -> bool:

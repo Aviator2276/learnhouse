@@ -124,10 +124,12 @@ if ! LIVE_OUT=$(node "$HERE/live.cjs" "$LH_IP" "$STATE_DIR/state.json" "$OUT"); 
 echo "$LIVE_OUT"
 CLASS_ID=$(sed -n 's/^LIVE_CLASS_ID=//p' <<<"$LIVE_OUT")
 ALICE_UUID=$(docker exec e2e-db psql -U lh -d lh -tAc "select user_uuid from \"user\" where id = ${USER_ID}")
+# plugNmeet reserves "user_"; LearnHouse sends lh_<uuid> as the identity.
+ALICE_PNM_ID="lh_${ALICE_UUID#user_}"
 pnm() { curl --noproxy '*' -sf -X POST "http://${PNM_IP}:8080/__webhook" -H 'Content-Type: application/json' -d "$1"; }
-joined=$(pnm "{\"event\":\"participant_joined\",\"room_id\":\"lh-${CLASS_ID}\",\"identity\":\"${ALICE_UUID}\"}")
+joined=$(pnm "{\"event\":\"participant_joined\",\"room_id\":\"lh-${CLASS_ID}\",\"identity\":\"${ALICE_PNM_ID}\"}")
 grep -q '"result": "joined"' <<<"$joined" || { echo "signed webhook not accepted: $joined"; dump_logs; exit 1; }
-forged=$(pnm "{\"event\":\"participant_joined\",\"room_id\":\"lh-${CLASS_ID}\",\"identity\":\"${ALICE_UUID}\",\"token\":\"forged\"}")
+forged=$(pnm "{\"event\":\"participant_joined\",\"room_id\":\"lh-${CLASS_ID}\",\"identity\":\"${ALICE_PNM_ID}\",\"token\":\"forged\"}")
 grep -q '"status": 401' <<<"$forged" || { echo "forged webhook not refused: $forged"; dump_logs; exit 1; }
 stays=$(docker exec e2e-db psql -U lh -d lh -tAc "select count(*) from liveclassattendance a join liveclass c on c.id = a.class_id where c.class_uuid = 'liveclass_${CLASS_ID}' and a.user_id = ${USER_ID}")
 [ "$stays" = "1" ] || { echo "attendance not recorded (rows: $stays)"; dump_logs; exit 1; }
@@ -140,7 +142,7 @@ room = s["rooms"]["lh-" + cid]["metadata"]
 assert room["logout_url"] == "http://learn.localhost/live-classes/" + cid, room["logout_url"]
 assert room["webhook_url"] == "http://learn.localhost/api/v1/plugnmeet/webhook", room
 host = [t for t in s["tokens"] if t["room_id"] == "lh-" + cid][0]["user_info"]
-assert host["is_admin"] is True and host["user_id"].startswith("user_"), host
+assert host["is_admin"] is True and host["user_id"].startswith("lh_"), host
 assert "lh-quick-1" in s["rooms"], "quick room was not created"
 ' "$state" "$CLASS_ID" || { echo "unexpected plugNmeet state: $state"; dump_logs; exit 1; }
 echo "live classes: signed API calls, host token, attendance webhook and forged-webhook refusal OK"

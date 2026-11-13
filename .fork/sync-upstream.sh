@@ -55,6 +55,15 @@ git merge --no-ff --no-commit "refs/tags/${target}"
 merge_rc=$?
 set -e
 
+# Lint with the ruff version upstream lints with (read before its workflows
+# are dropped below).
+upstream_ruff=$(git show "refs/tags/${target}:.github/workflows/api-lint.yaml" 2>/dev/null \
+  | grep -oE 'ruff==[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d= -f3 || true)
+if [ -n "$upstream_ruff" ]; then
+  echo "$upstream_ruff" > .fork/RUFF_VERSION
+  git add .fork/RUFF_VERSION
+fi
+
 # Upstream's own workflows are replaced by the fork-*.yml ones. Drop every
 # non-fork workflow, whether upstream changed it (a modify/delete conflict) or
 # added a new one, so nothing upstream-specific ever runs in this repository.
@@ -67,7 +76,8 @@ git ls-files -- .github/workflows | sort -u | { grep -v '^\.github/workflows/for
 # agree with each other), dropping the fork's bump. If upstream's version is
 # still vulnerable, the publish scan reopens the security issue.
 PYTHON_PIN_FILES=(Dockerfile apps/api/Dockerfile apps/api/pyproject.toml apps/api/uv.lock)
-if git diff --name-only --diff-filter=U | grep -qxF -f <(printf '%s\n' "${PYTHON_PIN_FILES[@]}"); then
+unmerged=$(git diff --name-only --diff-filter=U || true)
+if grep -qxF -f <(printf '%s\n' "${PYTHON_PIN_FILES[@]}") <<<"$unmerged"; then
   echo "Upstream changed its Python pin; taking upstream's version of: ${PYTHON_PIN_FILES[*]}"
   git checkout "refs/tags/${target}" -- "${PYTHON_PIN_FILES[@]}"
   git add -- "${PYTHON_PIN_FILES[@]}"

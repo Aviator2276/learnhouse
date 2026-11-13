@@ -62,9 +62,12 @@ jobs:
         working-directory: apps/api
         run: uv sync --frozen
 
-      - name: Lint (ruff)
+      - name: Lint (ruff, same version upstream uses)
+        # .fork/RUFF_VERSION is refreshed from upstream's own lint workflow on
+        # every upstream sync: newer ruff releases add rules upstream's code
+        # does not follow yet.
         working-directory: apps/api
-        run: uvx ruff check --output-format=github .
+        run: uvx "ruff@$(tr -d '[:space:]' < ../../.fork/RUFF_VERSION)" check --output-format=github .
 
       - name: Run tests
         working-directory: apps/api
@@ -297,9 +300,9 @@ jobs:
           if [ -z "$ok" ]; then docker logs app | tail -200; exit 1; fi
           body=$(curl -fsS http://localhost:8080/api/v1/auth/authentik/config)
           echo "$body"
-          echo "$body" | grep -q '"enabled":true'
+          grep -q '"enabled":true' <<<"$body"
           # The client secret must never be served.
-          if echo "$body" | grep -q "ci-not-a-secret"; then echo "::error::client secret leaked"; exit 1; fi
+          if grep -q "ci-not-a-secret" <<<"$body"; then echo "::error::client secret leaked"; exit 1; fi
           # Callback with a forged state is refused, not a server error.
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
             -d '{"code":"x","state":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","binding":"y"}' \

@@ -157,6 +157,15 @@ Scheduled workflows are paused by GitHub after 60 days without repository
 activity; regular upstream releases normally keep the repo active. If it
 happens, **Actions → (workflow) → Enable workflow**.
 
+### Python version
+
+The fork may run a newer Python **patch** release than upstream pins, to
+ship CVE fixes sooner (currently 3.14.10 vs upstream's 3.14.7). It lives in
+`Dockerfile`, `apps/api/Dockerfile`, `apps/api/pyproject.toml` and
+`apps/api/uv.lock`. When upstream changes its own pin, the sync takes
+upstream's version of all four files automatically; if that version is still
+vulnerable, the security issue reopens and you can bump it again.
+
 ### Upstream files the fork touches
 
 Kept deliberately tiny so upstream merges stay clean. Everything else is in
@@ -174,6 +183,8 @@ new files.
 | `apps/web/components/Dashboard/Pages/Users/Security/shared.tsx` | method checkbox |
 | `apps/web/app/auth/login/login.tsx`, `signup/*.tsx` | the button |
 | `apps/web/components/Contexts/AuthContext.tsx` | single logout |
+| `Dockerfile`, `apps/api/Dockerfile`, `apps/api/pyproject.toml`, `apps/api/uv.lock` | Python patch version (auto-resolved on sync) |
+| `docker/nginx.conf` | internal upstreams use `127.0.0.1` instead of `localhost` (POSTs failed with 502 on IPv6-enabled Docker hosts); re-applied automatically after every sync |
 
 Fork-only files: `apps/api/src/services/auth/authentik/`,
 `apps/api/src/routers/authentik.py`, `apps/api/src/db/user_identities.py`,

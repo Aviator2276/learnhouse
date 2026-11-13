@@ -49,7 +49,14 @@ def first(path, tries=60):
 authz = first("/flows/instances/?slug=default-provider-authorization-implicit-consent")["pk"]
 inval = first("/flows/instances/?slug=default-provider-invalidation-flow")["pk"]
 key = first("/crypto/certificatekeypairs/?name=authentik%20Self-signed%20Certificate")["pk"]
-scopes = {m.get("managed"): m["pk"] for m in api("GET", "/propertymappings/provider/scope/?page_size=200")["results"]}
+NEEDED_SCOPES = [f"goauthentik.io/providers/oauth2/scope-{s}" for s in ("openid", "profile")]
+for _ in range(60):  # also created by blueprints, possibly after the flows
+    scopes = {m.get("managed"): m["pk"] for m in api("GET", "/propertymappings/provider/scope/?page_size=200")["results"]}
+    if all(k in scopes for k in NEEDED_SCOPES):
+        break
+    time.sleep(5)
+else:
+    raise SystemExit("Authentik never created its default scope mappings")
 
 # The documented "verified email" mapping (Authentik's default sends false).
 email_mapping = api(

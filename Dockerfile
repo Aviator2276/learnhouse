@@ -75,7 +75,7 @@ RUN bun run build
 # ───────────────────────────────────────────────
 # Stage 5: Final image combining frontend + backend + collab
 # ───────────────────────────────────────────────
-FROM python:3.14.7-alpine3.24 AS runner
+FROM python:3.14.10-alpine3.24 AS runner
 
 # Node (for pm2 and collab) comes from the official image, not Alpine's nodejs
 # package, which trails Node security releases by weeks. Pinned so Renovate

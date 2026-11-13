@@ -1,4 +1,4 @@
-FROM python:3.14.7-alpine3.24
+FROM python:3.14.10-alpine3.24
 
 # Install curl and netcat for health checks and service waiting, plus ffmpeg
 # for video faststart remuxing (moves the MP4 moov atom to the front so long

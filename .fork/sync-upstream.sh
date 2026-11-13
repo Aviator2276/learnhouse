@@ -55,11 +55,47 @@ git merge --no-ff --no-commit "refs/tags/${target}"
 merge_rc=$?
 set -e
 
+# Lint with the ruff version upstream lints with (read before its workflows
+# are dropped below).
+upstream_ruff=$(git show "refs/tags/${target}:.github/workflows/api-lint.yaml" 2>/dev/null \
+  | grep -oE 'ruff==[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d= -f3 || true)
+if [ -n "$upstream_ruff" ]; then
+  echo "$upstream_ruff" > .fork/RUFF_VERSION
+  git add .fork/RUFF_VERSION
+fi
+
 # Upstream's own workflows are replaced by the fork-*.yml ones. Drop every
 # non-fork workflow, whether upstream changed it (a modify/delete conflict) or
 # added a new one, so nothing upstream-specific ever runs in this repository.
 git ls-files -- .github/workflows | sort -u | { grep -v '^\.github/workflows/fork-' || true; } \
   | xargs -r git rm -q -f --ignore-unmatch --
+
+# The fork may run a newer Python patch release than upstream pins (to ship
+# security fixes sooner). When upstream changes its own pin, those lines
+# conflict: take upstream's pin for ALL of these files together (they must
+# agree with each other), dropping the fork's bump. If upstream's version is
+# still vulnerable, the publish scan reopens the security issue.
+PYTHON_PIN_FILES=(Dockerfile apps/api/Dockerfile apps/api/pyproject.toml apps/api/uv.lock)
+unmerged=$(git diff --name-only --diff-filter=U || true)
+if grep -qxF -f <(printf '%s\n' "${PYTHON_PIN_FILES[@]}") <<<"$unmerged"; then
+  echo "Upstream changed its Python pin; taking upstream's version of: ${PYTHON_PIN_FILES[*]}"
+  git checkout "refs/tags/${target}" -- "${PYTHON_PIN_FILES[@]}"
+  git add -- "${PYTHON_PIN_FILES[@]}"
+fi
+
+# Fork patch: the bundled nginx must reach the app's services over IPv4
+# loopback. "localhost" resolves to ::1 first on IPv6-enabled Docker hosts,
+# where the services (bound to 0.0.0.0) refuse, and nginx never retries a POST
+# on the next address: every login would answer 502. Re-applied on every
+# merge (taking upstream's file first if it conflicts), so it survives updates.
+NGINX_CONF=docker/nginx.conf
+if grep -qxF "$NGINX_CONF" <<<"$(git diff --name-only --diff-filter=U || true)"; then
+  git checkout "refs/tags/${target}" -- "$NGINX_CONF"
+fi
+if [ -f "$NGINX_CONF" ]; then
+  sed -i 's#proxy_pass http://localhost:#proxy_pass http://127.0.0.1:#' "$NGINX_CONF"
+  git add -- "$NGINX_CONF"
+fi
 
 conflicts=$(git diff --name-only --diff-filter=U || true)
 if [ -n "$conflicts" ]; then

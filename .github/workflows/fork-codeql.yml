@@ -1,0 +1,61 @@
+# CodeQL code scanning (free for public repositories). Weekly over the whole
+# codebase, and on pull requests that touch the fork's own code. Results land
+# in the repository's Security tab.
+name: CodeQL
+
+on:
+  schedule:
+    - cron: "17 2 * * 0" # Sundays 02:17 UTC
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/api/src/services/auth/**"
+      - "apps/api/src/routers/authentik.py"
+      - "apps/api/src/routers/auth.py"
+      - "apps/api/src/security/**"
+      - "apps/web/services/auth/**"
+      - "apps/web/app/auth/**"
+      - "apps/web/app/api/auth/**"
+      - "apps/web/components/Auth/**"
+      - "apps/web/components/Contexts/AuthContext.tsx"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - "**/node_modules/**"
+              - "**/tests/**"
+              - "apps/e2e/**"
+              - "docs/**"
+
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: /language:${{ matrix.language }}

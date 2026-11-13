@@ -1,0 +1,170 @@
+# Daily: when LearnHouse publishes a new stable release, merge it into a
+# branch, open a PR and turn on auto-merge. The PR's own CI (fork-ci.yml) is
+# the gate: the branch ruleset on main only lets it merge when "required" is
+# green, and the merge then publishes a new image (fork-publish.yml).
+#
+# Anything that needs a human (merge conflicts, failing CI on a sync PR, a
+# missing token) opens or updates one issue labelled "upstream-sync".
+#
+# One-time setup (see docs/authentik/CI-CD.md): a fine-grained token in the
+# FORK_SYNC_TOKEN secret. GITHUB_TOKEN cannot be used: it may not push commits
+# that touch workflow files, and PRs it opens never trigger CI.
+name: Upstream sync
+
+on:
+  schedule:
+    - cron: "23 5 * * *" # daily 05:23 UTC
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Upstream tag to merge (default: newest stable release)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check the sync token is configured
+        env:
+          TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::Secret FORK_SYNC_TOKEN is not set. See docs/authentik/CI-CD.md."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.FORK_SYNC_TOKEN }}
+
+      - name: Git identity
+        run: |
+          git config user.name "learnhouse-fork-sync[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine target release
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_TAG:-}" ]; then tag="$INPUT_TAG"; else
+            tag=$(gh api repos/learnhouse/learnhouse/releases/latest --jq .tag_name 2>/dev/null || true)
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "branch=upstream-sync/${tag}" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --heads origin "upstream-sync/${tag}" >/dev/null 2>&1; then
+            echo "pending=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pending=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: A sync PR is already open, check on it
+        if: steps.target.outputs.pending == 'true'
+        id: existing
+        env:
+          GH_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+          BRANCH: ${{ steps.target.outputs.branch }}
+        run: |
+          set -euo pipefail
+          pr=$(gh pr list --head "$BRANCH" --state open --json number,url --jq '.[0]')
+          if [ -z "$pr" ]; then echo "No open PR for $BRANCH (merged or closed)."; exit 0; fi
+          number=$(echo "$pr" | jq -r .number)
+          failed=$(gh pr checks "$number" --json bucket --jq '[.[] | select(.bucket=="fail")] | length' || echo 0)
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          echo "url=$(echo "$pr" | jq -r .url)" >> "$GITHUB_OUTPUT"
+          # Re-arm auto-merge in case someone turned it off.
+          gh pr merge "$number" --auto --merge || true
+
+      - name: Merge upstream
+        if: steps.target.outputs.pending != 'true'
+        id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.target.outputs.tag }}
+        run: |
+          git checkout -b "upstream-sync/${TAG:-latest}"
+          set +e
+          bash .fork/sync-upstream.sh ${TAG:+"$TAG"}
+          rc=$?
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          if [ "$rc" -eq 1 ]; then exit 1; fi
+
+      - name: Push branch and open PR with auto-merge
+        if: steps.merge.outputs.status == 'merged'
+        env:
+          GH_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+          TAG: ${{ steps.merge.outputs.tag }}
+        run: |
+          set -euo pipefail
+          branch="upstream-sync/${TAG}"
+          git branch -m "$branch"
+          git push origin "$branch"
+          body=$(cat <<EOF
+          Automated merge of the upstream LearnHouse release [\`${TAG}\`](https://github.com/learnhouse/learnhouse/releases/tag/${TAG}).
+
+          - Upstream workflows are dropped; this repository runs only \`fork-*.yml\`.
+          - Auto-merge is on: this PR merges by itself once **CI / required** is green, which publishes a new \`:latest\` image.
+          - If CI fails, the failure is tracked in an \`upstream-sync\` issue.
+          EOF
+          )
+          url=$(gh pr create --base main --head "$branch" --title "chore(upstream): LearnHouse ${TAG}" --body "$body")
+          echo "Opened $url"
+          if ! gh pr merge "$url" --auto --merge; then
+            echo "::warning::Could not enable auto-merge. Turn on 'Allow auto-merge' and the main branch ruleset (docs/authentik/CI-CD.md)."
+          fi
+
+      - name: Report problems in an issue
+        if: >-
+          failure() ||
+          steps.merge.outputs.status == 'conflict' ||
+          (steps.existing.outputs.failed != '' && steps.existing.outputs.failed != '0')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.target.outputs.tag }}
+          STATUS: ${{ steps.merge.outputs.status }}
+          CONFLICTS: ${{ steps.merge.outputs.conflicts }}
+          PR_URL: ${{ steps.existing.outputs.url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh label create upstream-sync --color D93F0B --description "Automated upstream update needs attention" 2>/dev/null || true
+          title="Upstream sync needs attention: LearnHouse ${TAG:-unknown}"
+          if [ "$STATUS" = "conflict" ]; then
+            reason=$(printf 'Merging the release left conflicts in:\n\n```\n%s\n```\n\nResolve locally:\n\n```bash\ngit switch -c upstream-sync/%s origin/main\nbash .fork/sync-upstream.sh %s   # stops at the conflicts\n# fix the files, then:\ngit add -A && git commit\ngit push -u origin upstream-sync/%s\n```\nThen open a PR into main; auto-merge and publishing work as usual.' "$CONFLICTS" "$TAG" "$TAG" "$TAG")
+          elif [ -n "${PR_URL:-}" ]; then
+            reason="CI is failing on the sync PR ${PR_URL}. It will not merge until the checks pass; push fixes to its branch."
+          else
+            reason="The sync workflow failed: ${RUN_URL}"
+          fi
+          existing=$(gh issue list --label upstream-sync --state open --search "in:title \"${title}\"" --json number --jq '.[0].number' || true)
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$(printf '%s\n\nRun: %s' "$reason" "$RUN_URL")"
+          else
+            gh issue create --title "$title" --label upstream-sync --body "$(printf '%s\n\nRun: %s' "$reason" "$RUN_URL")"
+          fi
+
+      - name: Fail the run when a human is needed
+        if: steps.merge.outputs.status == 'conflict'
+        run: |
+          echo "::error::Upstream release could not be merged automatically; see the upstream-sync issue."
+          exit 1

@@ -1,0 +1,354 @@
+# Fork CI: every pull request into main (including the automated upstream
+# sync PRs) must pass this before it can merge. The single "required" job at
+# the end is what the branch ruleset should require.
+#
+# Cost notes (GitHub Free): jobs run in parallel, dependency caches are keyed
+# on lockfiles, and a newer push to the same PR cancels the older run.
+name: CI
+
+on:
+  # No path filters: "required" must report on every PR or a docs-only PR
+  # could never merge under the ruleset.
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  # Weekly: the whole suite again, with the real-Authentik end-to-end test
+  # against the *latest* Authentik release, so a breaking Authentik change is
+  # caught before you upgrade your Authentik.
+  schedule:
+    - cron: "11 4 * * 3" # Wednesdays 04:11 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "latest"
+  BUN_VERSION: "latest"
+
+jobs:
+  api-tests:
+    name: API tests (100% coverage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+
+      - name: Cache ffmpeg packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archives
+          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1
+
+      - name: Install ffmpeg (needed by the media tests for full coverage)
+        run: |
+          mkdir -p ~/apt-archives/partial
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends -o Dir::Cache::Archives="$HOME/apt-archives" ffmpeg
+          sudo chown -R "$(id -u):$(id -g)" ~/apt-archives
+
+      - name: Install dependencies
+        working-directory: apps/api
+        run: uv sync --frozen
+
+      - name: Lint (ruff)
+        working-directory: apps/api
+        run: uvx ruff check --output-format=github .
+
+      - name: Run tests
+        working-directory: apps/api
+        env:
+          TESTING: "true"
+        run: >-
+          uv run pytest src/tests/ -n auto --dist worksteal -q --tb=short
+          --cov=src --cov-report=term-missing:skip-covered
+
+  api-migrations:
+    name: API migrations (Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: learnhouse
+          POSTGRES_PASSWORD: learnhouse
+          POSTGRES_DB: learnhouse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U learnhouse"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      LEARNHOUSE_SQL_CONNECTION_STRING: postgresql://learnhouse:learnhouse@localhost:5432/learnhouse
+      LEARNHOUSE_AUTH_JWT_SECRET_KEY: ci-only-not-a-secret-ci-only-not-a-secret
+      PGPASSWORD: learnhouse
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+
+      - name: Install dependencies
+        working-directory: apps/api
+        run: uv sync --frozen
+
+      - name: New install (empty database)
+        working-directory: apps/api
+        run: |
+          uv run python cli.py migrate --strict
+          uv run python cli.py migrate --status
+
+      - name: Upgrade from the base branch
+        # The path every existing install takes: main's schema, then this
+        # branch's migrations. --strict fails when a model has no migration.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          psql -h localhost -U learnhouse -d postgres -c "DROP DATABASE learnhouse WITH (FORCE)" -c "CREATE DATABASE learnhouse"
+          git worktree add --detach /tmp/base "$BASE_SHA"
+          if [ -f /tmp/base/apps/api/scripts/ci_schema_baseline.py ]; then
+            (cd /tmp/base/apps/api && "$GITHUB_WORKSPACE/apps/api/.venv/bin/python" "$GITHUB_WORKSPACE/apps/api/scripts/ci_schema_baseline.py")
+          fi
+          cd apps/api
+          uv run python cli.py migrate --strict
+          uv run python cli.py migrate --status
+
+      - name: The Authentik table exists
+        run: psql -h localhost -U learnhouse -d learnhouse -c "SELECT 1 FROM userexternalidentity LIMIT 0"
+
+  web:
+    name: Web (types, unit tests, lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache bun packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('apps/web/bun.lock') }}
+
+      - name: Install dependencies
+        working-directory: apps/web
+        run: bun install --frozen-lockfile
+
+      - name: Type check
+        working-directory: apps/web
+        run: |
+          bunx next typegen
+          bunx tsc --noEmit
+
+      - name: Unit tests
+        working-directory: apps/web
+        run: bun run test
+
+      - name: Lint fork-owned files (errors fail)
+        working-directory: apps/web
+        run: >-
+          bunx eslint --max-warnings=0
+          services/auth/authentik.ts
+          components/Auth/AuthentikSignInButton.tsx
+          app/auth/callback/authentik/page.tsx
+
+  security:
+    name: Security scans
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Secret scan (gitleaks, fork-owned paths)
+        # Upstream's own tree carries test fixtures that look like secrets;
+        # what this fork adds or configures is scanned strictly.
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          curl -sSfL -o /tmp/gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          for p in .github .fork deploy docs/authentik \
+                   apps/api/src/services/auth/authentik apps/api/src/routers/authentik.py \
+                   apps/api/src/db/user_identities.py \
+                   apps/web/services/auth/authentik.ts apps/web/components/Auth/AuthentikSignInButton.tsx \
+                   apps/web/app/auth/callback/authentik; do
+            [ -e "$p" ] && /tmp/gitleaks dir --no-banner --redact --exit-code 1 "$p"
+          done
+
+      - name: Static analysis (bandit, fork Python code)
+        run: >-
+          uvx --python 3.14 bandit -r -ll -ii
+          apps/api/src/services/auth/authentik
+          apps/api/src/routers/authentik.py
+          apps/api/src/db/user_identities.py
+
+      - name: Dependency vulnerabilities (Grype, reported)
+        id: deps
+        run: |
+          bash .fork/scan.sh dir:. "$RUNNER_TEMP/deps.md"
+          cat "$RUNNER_TEMP/deps.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Flag fixable critical dependency vulnerabilities
+        if: steps.deps.outputs.criticals != '0'
+        run: echo "::warning::${{ steps.deps.outputs.criticals }} fixable critical dependency vulnerabilities (pinned upstream; see the job summary)."
+
+      - name: Workflow hardening check
+        # No workflow may run untrusted PR code with secrets, and every
+        # third-party action must be pinned to a full commit SHA.
+        run: |
+          set -e
+          if grep -RnE "^ *pull_request_targe[t]:" .github/workflows; then
+            echo "::error::pull_request_target is not allowed in this repository"; exit 1
+          fi
+          bad=$(grep -RhoE "uses: *[^ ./][^ ]*@[^ ]+" .github/workflows | grep -vE "@[0-9a-f]{40}$" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Actions must be pinned to a commit SHA:"; echo "$bad"; exit 1
+          fi
+
+  docker:
+    name: Image build, boot test and scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: learnhouse-authentik:ci
+          build-args: |
+            LEARNHOUSE_PUBLIC=true
+            BUILD_ID=${{ github.sha }}
+          cache-from: type=gha,scope=amd64
+          cache-to: type=gha,mode=max,scope=amd64
+
+      - name: Boot test (Postgres + Redis + app, Authentik enabled)
+        run: |
+          set -euo pipefail
+          docker network create lh
+          docker run -d --name db --network lh -e POSTGRES_USER=lh -e POSTGRES_PASSWORD=lh -e POSTGRES_DB=lh pgvector/pgvector:pg16
+          docker run -d --name redis --network lh redis:7.4-alpine
+          for _ in $(seq 1 30); do docker exec db pg_isready -U lh && break; sleep 2; done
+          docker run -d --name app --network lh -p 8080:80 \
+            -e LEARNHOUSE_SQL_CONNECTION_STRING=postgresql://lh:lh@db:5432/lh \
+            -e LEARNHOUSE_REDIS_CONNECTION_STRING=redis://redis:6379/0 \
+            -e LEARNHOUSE_REDIS_URL=redis://redis:6379/0 \
+            -e LEARNHOUSE_AUTH_JWT_SECRET_KEY=ci-boot-test-secret-ci-boot-test-secret \
+            -e NEXTAUTH_SECRET=ci-boot-test-secret-ci-boot-test-secret \
+            -e COLLAB_INTERNAL_KEY=ci-boot-test-key \
+            -e LEARNHOUSE_DOMAIN=localhost:8080 \
+            -e LEARNHOUSE_INITIAL_ADMIN_EMAIL=admin@example.com \
+            -e LEARNHOUSE_INITIAL_ADMIN_PASSWORD=ci-boot-Admin-Passw0rd! \
+            -e LEARNHOUSE_AUTHENTIK_ENABLED=true \
+            -e LEARNHOUSE_AUTHENTIK_ISSUER=https://authentik.invalid/application/o/learnhouse/ \
+            -e LEARNHOUSE_AUTHENTIK_CLIENT_ID=ci \
+            -e LEARNHOUSE_AUTHENTIK_CLIENT_SECRET=ci-not-a-secret \
+            -e LEARNHOUSE_AUTHENTIK_REDIRECT_URI=https://localhost:8080/auth/callback/authentik \
+            learnhouse-authentik:ci
+          ok=""
+          for _ in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/api/v1/health >/dev/null 2>&1; then ok=1; break; fi
+            sleep 5
+          done
+          if [ -z "$ok" ]; then docker logs app | tail -200; exit 1; fi
+          body=$(curl -fsS http://localhost:8080/api/v1/auth/authentik/config)
+          echo "$body"
+          echo "$body" | grep -q '"enabled":true'
+          # The client secret must never be served.
+          if echo "$body" | grep -q "ci-not-a-secret"; then echo "::error::client secret leaked"; exit 1; fi
+          # Callback with a forged state is refused, not a server error.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+            -d '{"code":"x","state":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","binding":"y"}' \
+            http://localhost:8080/api/v1/auth/authentik/callback)
+          echo "forged callback -> $code"; [ "$code" = "400" ]
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs app 2>&1 | tail -300 || true
+
+      - name: Real Authentik end-to-end (browser sign-in, role mapping, back-channel logout)
+        env:
+          # Pinned on PRs for reproducibility; the weekly run tracks Authentik's latest.
+          AUTHENTIK_VERSION: ${{ github.event_name == 'schedule' && 'latest' || '2026.8.5' }}
+          PLAYWRIGHT_VERSION: "1.63.0"
+          E2E_OUT: ${{ runner.temp }}/authentik-e2e
+        run: |
+          docker rm -f app db redis >/dev/null 2>&1 || true
+          (cd .fork/e2e && npm install --no-save --no-package-lock --silent "playwright@${PLAYWRIGHT_VERSION}" \
+            && npx --no-install playwright install --with-deps chromium >/dev/null)
+          bash .fork/e2e/run.sh learnhouse-authentik:ci "$AUTHENTIK_VERSION"
+
+      - name: Upload e2e screenshot on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: authentik-e2e
+          path: ${{ runner.temp }}/authentik-e2e
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Image vulnerabilities (Grype, reported)
+        id: imagescan
+        run: |
+          bash .fork/scan.sh learnhouse-authentik:ci "$RUNNER_TEMP/image.md"
+          cat "$RUNNER_TEMP/image.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Flag fixable critical image vulnerabilities
+        if: steps.imagescan.outputs.criticals != '0'
+        run: echo "::warning::${{ steps.imagescan.outputs.criticals }} fixable critical vulnerabilities in the image (pinned upstream; see the job summary)."
+
+  required:
+    # The one check the branch ruleset requires; it is green only when every
+    # job above succeeded.
+    name: required
+    if: always()
+    needs: [api-tests, api-migrations, web, security, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All checks passed
+        run: |
+          echo '${{ toJSON(needs) }}' | jq -e 'to_entries | all(.value.result == "success")'

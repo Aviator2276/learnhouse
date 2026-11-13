@@ -36,6 +36,7 @@ import { Keys } from '@components/Objects/Shortcuts/Kbd'
 import DripBadge, { DripIcon, DripUntilBadge, useDripLabel } from '@components/Objects/Courses/DripBadge'
 import { buildIcs } from '@/lib/drip'
 import ThumbnailImage from '@components/Objects/Thumbnails/ThumbnailImage'
+import CourseLiveClasses from '@components/LiveClasses/CourseLiveClasses' // Fork: plugNmeet
 
 const CourseClient = (props: any) => {
   const { t } = useTranslation()
@@ -535,6 +536,8 @@ const CourseClient = (props: any) => {
                 <CoursesActions courseuuid={courseuuid} orgslug={orgslug} course={course} trailData={trailData} />
 
                 <CoursePaths courseUuid={course.course_uuid} orgslug={orgslug} />
+
+                <CourseLiveClasses courseUuid={course.course_uuid} courseName={course.name} orgslug={orgslug} />
                 
                 {/* Authors & Updates Box */}
                 <div className="bg-white shadow-md shadow-gray-300/25 outline outline-1 outline-neutral-200/40 rounded-lg overflow-hidden p-4">

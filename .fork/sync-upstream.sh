@@ -118,6 +118,12 @@ if [ "$merge_rc" -ne 0 ] && ! git rev-parse -q --verify MERGE_HEAD >/dev/null; t
   exit 1
 fi
 
+# Upstream's new migrations and the fork's form two Alembic heads: join them.
+if merge_file=$(python3 .fork/merge_migration_heads.py apps/api/migrations/versions) && [ -n "$merge_file" ]; then
+  echo "Added migration merge revision ${merge_file}"
+  git add "$merge_file"
+fi
+
 echo "$target" > .fork/UPSTREAM_VERSION
 git add .fork/UPSTREAM_VERSION
 git commit --quiet -m "chore(upstream): merge LearnHouse ${target}" \

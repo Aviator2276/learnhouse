@@ -173,7 +173,7 @@ new files.
 
 | File | Change |
 | --- | --- |
-| `apps/api/src/router.py` | mounts `/auth/authentik` |
+| `apps/api/src/router.py` | mounts `/auth/authentik` and `/plugnmeet` |
 | `apps/api/src/security/session_context.py` | `AUTH_METHOD_AUTHENTIK` constant |
 | `apps/api/src/services/orgs/auth_policy.py` | label for the method |
 | `apps/api/src/services/orgs/mfa_policy.py` | Authentik counts as an external IdP |
@@ -184,15 +184,34 @@ new files.
 | `apps/web/app/auth/login/login.tsx`, `signup/*.tsx` | the button |
 | `apps/web/components/Contexts/AuthContext.tsx` | single logout |
 | `Dockerfile`, `apps/api/Dockerfile`, `apps/api/pyproject.toml`, `apps/api/uv.lock` | Python patch version (auto-resolved on sync) |
+| `apps/web/components/Objects/Menus/OrgMenuLinks.tsx` | Live classes menu entry |
+| `apps/web/app/orgs/[orgslug]/(withmenu)/layout.tsx` | live-now banner |
+| `apps/web/app/orgs/[orgslug]/(withmenu)/course/[courseuuid]/course.tsx` | course page live-classes box |
 | `docker/nginx.conf` | internal upstreams use `127.0.0.1` instead of `localhost` (POSTs failed with 502 on IPv6-enabled Docker hosts); re-applied automatically after every sync |
 
 Fork-only files: `apps/api/src/services/auth/authentik/`,
 `apps/api/src/routers/authentik.py`, `apps/api/src/db/user_identities.py`,
-`apps/api/migrations/versions/ak01a2b3c4d5_*` (own Alembic branch),
-`apps/api/src/tests/authentik/`, `apps/web/services/auth/authentik.ts`,
+`apps/api/migrations/versions/ak01a2b3c4d5_*`, `pn01a2b3c4d5_*` and any
+`fm*_fork_merge_heads.py`, `apps/api/src/tests/authentik/`,
+`apps/web/services/auth/authentik.ts`,
 `apps/web/components/Auth/AuthentikSignInButton.tsx`,
-`apps/web/app/auth/callback/authentik/`, `apps/web/tests/authentik.test.mjs`,
-`.fork/`, `.github/`, `deploy/`, `docs/authentik/`.
+`apps/web/app/auth/callback/authentik/`, `apps/web/tests/authentik.test.mjs`;
+for live classes `apps/api/src/services/plugnmeet/`,
+`apps/api/src/routers/plugnmeet.py`, `apps/api/src/db/live_classes.py`,
+`apps/api/src/tests/plugnmeet/`, `apps/web/components/LiveClasses/`,
+`apps/web/services/plugnmeet/`, `apps/web/app/orgs/[orgslug]/(withmenu)/live-classes/`,
+`apps/web/tests/plugnmeet-live-classes.test.mjs`; and `.fork/`, `.github/`,
+`deploy/`, `docs/`.
+
+### Database migrations
+
+Fork migrations form one line after the upstream head they were written
+against. When an upstream release adds its own migrations the graph would
+have two heads, which upstream's `test_migration_graph` rejects. The sync
+script runs `.fork/merge_migration_heads.py`, which adds an empty Alembic
+merge revision joining them. Existing databases then apply just the new
+upstream migrations; new ones apply everything. A new fork migration should
+use the current single head as its `down_revision`.
 
 ## Running a sync by hand
 

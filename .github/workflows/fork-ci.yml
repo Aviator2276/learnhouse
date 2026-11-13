@@ -137,8 +137,12 @@ jobs:
           uv run python cli.py migrate --strict
           uv run python cli.py migrate --status
 
-      - name: The Authentik table exists
-        run: psql -h localhost -U learnhouse -d learnhouse -c "SELECT 1 FROM userexternalidentity LIMIT 0"
+      - name: The fork's tables exist
+        run: |
+          psql -h localhost -U learnhouse -d learnhouse -v ON_ERROR_STOP=1 \
+            -c "SELECT 1 FROM userexternalidentity LIMIT 0" \
+            -c "SELECT 1 FROM liveclass LIMIT 0" \
+            -c "SELECT 1 FROM liveclassattendance LIMIT 0"
 
   web:
     name: Web (types, unit tests, lint)
@@ -205,11 +209,14 @@ jobs:
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
           tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
-          for p in .github .fork deploy docs/authentik \
+          for p in .github .fork deploy docs/authentik docs/plugnmeet \
                    apps/api/src/services/auth/authentik apps/api/src/routers/authentik.py \
                    apps/api/src/db/user_identities.py \
+                   apps/api/src/services/plugnmeet apps/api/src/routers/plugnmeet.py \
+                   apps/api/src/db/live_classes.py \
                    apps/web/services/auth/authentik.ts apps/web/components/Auth/AuthentikSignInButton.tsx \
-                   apps/web/app/auth/callback/authentik; do
+                   apps/web/app/auth/callback/authentik \
+                   apps/web/services/plugnmeet apps/web/components/LiveClasses; do
             [ -e "$p" ] && /tmp/gitleaks dir --no-banner --redact --exit-code 1 "$p"
           done
 
@@ -219,6 +226,11 @@ jobs:
           apps/api/src/services/auth/authentik
           apps/api/src/routers/authentik.py
           apps/api/src/db/user_identities.py
+          apps/api/src/services/plugnmeet
+          apps/api/src/routers/plugnmeet.py
+          apps/api/src/db/live_classes.py
+          .fork/merge_migration_heads.py
+          .fork/e2e/fake_plugnmeet.py
 
       - name: Dependency vulnerabilities (Grype, reported)
         id: deps
@@ -291,6 +303,10 @@ jobs:
             -e LEARNHOUSE_AUTHENTIK_CLIENT_ID=ci \
             -e LEARNHOUSE_AUTHENTIK_CLIENT_SECRET=ci-not-a-secret \
             -e LEARNHOUSE_AUTHENTIK_REDIRECT_URI=https://localhost:8080/auth/callback/authentik \
+            -e LEARNHOUSE_PLUGNMEET_ENABLED=true -e LEARNHOUSE_PLUGNMEET_SERVER_URL=http://10.255.255.1:8080 \
+            -e LEARNHOUSE_PLUGNMEET_CLIENT_URL=https://meet.invalid -e LEARNHOUSE_PLUGNMEET_API_KEY=plugnmeet \
+            -e LEARNHOUSE_PLUGNMEET_API_SECRET=ci-pnm-not-a-secret-0123456789 \
+            -e LEARNHOUSE_PLUGNMEET_PUBLIC_URL=https://localhost:8080 -e LEARNHOUSE_PLUGNMEET_WEBHOOK_ENABLED=true \
             learnhouse-authentik:ci
           ok=""
           for _ in $(seq 1 60); do
@@ -308,12 +324,22 @@ jobs:
             -d '{"code":"x","state":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","binding":"y"}' \
             http://localhost:8080/api/v1/auth/authentik/callback)
           echo "forged callback -> $code"; [ "$code" = "400" ]
+          body=$(curl -fsS http://localhost:8080/api/v1/plugnmeet/config)
+          echo "$body"
+          grep -q '"enabled":true' <<<"$body"
+          if grep -q "ci-pnm-not-a-secret" <<<"$body"; then echo "::error::plugNmeet secret leaked"; exit 1; fi
+          # Live classes are members-only, and unsigned webhooks are refused.
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v1/plugnmeet/org/1/classes)
+          echo "anonymous class list -> $code"; [ "$code" = "401" ]
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+            -d '{"event":"participant_joined"}' http://localhost:8080/api/v1/plugnmeet/webhook)
+          echo "unsigned webhook -> $code"; [ "$code" = "401" ]
 
       - name: Container logs on failure
         if: failure()
         run: docker logs app 2>&1 | tail -300 || true
 
-      - name: Real Authentik end-to-end (browser sign-in, role mapping, back-channel logout)
+      - name: Real Authentik + live classes end-to-end (browser sign-in, role mapping, plugNmeet, back-channel logout)
         env:
           # Pinned on PRs for reproducibility; the weekly run tracks Authentik's latest.
           AUTHENTIK_VERSION: ${{ github.event_name == 'schedule' && 'latest' || '2026.8.5' }}

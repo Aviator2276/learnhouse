@@ -23,6 +23,10 @@ services:
     environment:
       HOSTNAME: 0.0.0.0
       LEARNHOUSE_API_URL: http://localhost:9000
+      # Server-side page rendering talks to the API inside the container
+      # instead of going out to the public domain and back (which breaks
+      # without hairpin NAT, or before DNS / the reverse proxy are ready).
+      LEARNHOUSE_INTERNAL_API_URL: http://127.0.0.1:9000
       LEARNHOUSE_SQL_CONNECTION_STRING: postgresql://learnhouse:${POSTGRES_PASSWORD}@db:5432/learnhouse
       LEARNHOUSE_REDIS_CONNECTION_STRING: redis://redis:6379/0
       LEARNHOUSE_REDIS_URL: redis://redis:6379

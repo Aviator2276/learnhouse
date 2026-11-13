@@ -19,6 +19,11 @@ on:
       - "apps/web/app/api/auth/**"
       - "apps/web/components/Auth/**"
       - "apps/web/components/Contexts/AuthContext.tsx"
+      - "apps/api/src/services/plugnmeet/**"
+      - "apps/api/src/routers/plugnmeet.py"
+      - "apps/api/src/db/live_classes.py"
+      - "apps/web/services/plugnmeet/**"
+      - "apps/web/components/LiveClasses/**"
 
 permissions:
   contents: read
@@ -54,6 +59,8 @@ jobs:
               - "**/node_modules/**"
               - "**/tests/**"
               - "apps/e2e/**"
+              # The fork's container e2e harness (test stand-ins, never in the image).
+              - ".fork/e2e/**"
               - "docs/**"
 
       - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3

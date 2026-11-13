@@ -72,6 +72,26 @@ with the stack stopped or with `pg_dump`:
 docker exec learnhouse-db pg_dump -U learnhouse learnhouse | gzip > /mnt/user/backups/learnhouse-$(date +%F).sql.gz
 ```
 
+## Troubleshooting: "We couldn't find that" on every page
+
+`NEXT_PUBLIC_LEARNHOUSE_DEFAULT_ORG` names an organization that does not
+exist. The organization is created once, on the first start, from
+`LEARNHOUSE_INITIAL_ORG_SLUG` (default `default`); changing either variable
+later does not rename it. Check the real slug:
+
+```bash
+docker exec learnhouse-db psql -U learnhouse -d learnhouse -c "select id, slug, name from organization;"
+```
+
+Then either set `NEXT_PUBLIC_LEARNHOUSE_DEFAULT_ORG` to that slug (or remove
+it: LearnHouse then finds the org itself) and restart, or rename the org:
+
+```bash
+docker exec learnhouse-db psql -U learnhouse -d learnhouse -c "UPDATE organization SET slug='cc' WHERE slug='default';"
+docker exec learnhouse-redis redis-cli FLUSHALL   # clears cached lookups; signs everyone out
+docker restart learnhouse
+```
+
 ## Hardening checklist
 
 - Only the reverse proxy is exposed to the internet; database and Redis have

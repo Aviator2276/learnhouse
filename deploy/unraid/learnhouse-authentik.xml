@@ -41,7 +41,7 @@
   <Config Name="Cookie domain" Target="LEARNHOUSE_COOKIE_DOMAIN" Default="" Mode="" Description=".example.com" Type="Variable" Display="advanced" Required="true" Mask="false"/>
   <Config Name="HTTPS" Target="NEXT_PUBLIC_LEARNHOUSE_HTTPS" Default="True" Mode="" Description="Keep True behind a TLS proxy." Type="Variable" Display="advanced" Required="true" Mask="false">True</Config>
   <Config Name="Multi org" Target="NEXT_PUBLIC_LEARNHOUSE_MULTI_ORG" Default="False" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">False</Config>
-  <Config Name="Default org slug" Target="NEXT_PUBLIC_LEARNHOUSE_DEFAULT_ORG" Default="default" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">default</Config>
+  <Config Name="Default org slug" Target="NEXT_PUBLIC_LEARNHOUSE_DEFAULT_ORG" Default="default" Mode="" Description="Must equal Initial org slug. The org is created once, on first start; changing this later does not rename it." Type="Variable" Display="advanced" Required="true" Mask="false">default</Config>
   <Config Name="Internal API URL" Target="LEARNHOUSE_API_URL" Default="http://localhost:9000" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">http://localhost:9000</Config>
   <Config Name="Hostname" Target="HOSTNAME" Default="0.0.0.0" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">0.0.0.0</Config>
 
@@ -56,7 +56,7 @@
   <Config Name="Initial admin email" Target="LEARNHOUSE_INITIAL_ADMIN_EMAIL" Default="" Mode="" Description="Used on first start only." Type="Variable" Display="always" Required="true" Mask="false"/>
   <Config Name="Initial admin password" Target="LEARNHOUSE_INITIAL_ADMIN_PASSWORD" Default="" Mode="" Description="Used on first start only." Type="Variable" Display="always" Required="true" Mask="true"/>
   <Config Name="Initial org name" Target="LEARNHOUSE_INITIAL_ORG_NAME" Default="My Organization" Mode="" Description="" Type="Variable" Display="advanced" Required="false" Mask="false">My Organization</Config>
-  <Config Name="Initial org slug" Target="LEARNHOUSE_INITIAL_ORG_SLUG" Default="default" Mode="" Description="" Type="Variable" Display="advanced" Required="false" Mask="false">default</Config>
+  <Config Name="Initial org slug" Target="LEARNHOUSE_INITIAL_ORG_SLUG" Default="default" Mode="" Description="Used on first start only. Must equal Default org slug." Type="Variable" Display="advanced" Required="false" Mask="false">default</Config>
 
   <Config Name="Authentik: enabled" Target="LEARNHOUSE_AUTHENTIK_ENABLED" Default="true" Mode="" Description="" Type="Variable" Display="always" Required="true" Mask="false">true</Config>
   <Config Name="Authentik: issuer" Target="LEARNHOUSE_AUTHENTIK_ISSUER" Default="" Mode="" Description="Provider's OpenID Configuration Issuer, e.g. https://auth.example.com/application/o/learnhouse/" Type="Variable" Display="always" Required="true" Mask="false"/>

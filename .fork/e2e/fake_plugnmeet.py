@@ -100,6 +100,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/auth/room/getJoinToken":
             if room_id not in ROOMS:
                 return self._send(200, {"status": False, "msg": "room is not active"})
+            if str(payload.get("user_info", {}).get("user_id", "")).startswith("user_"):
+                # Real plugNmeet reserves this prefix (models/user_join.go).
+                return self._send(200, {"status": False, "msg": "user_id cannot start with the reserved pattern 'user_'"})
             TOKENS.append(payload)
             return self._send(200, {"status": True, "msg": "ok", "token": f"e2e-token-{len(TOKENS)}"})
         if self.path == "/auth/room/endRoom":

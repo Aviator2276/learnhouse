@@ -306,13 +306,13 @@ async def test_join_flow(env, db, people):
     assert meta["webhook_url"] == f"{PUBLIC}/api/v1/plugnmeet/webhook"
     assert meta["room_title"] == "Algebra live"
     assert env.pnm.tokens[0]["user_info"]["is_admin"] is True
-    assert env.pnm.tokens[0]["user_info"]["user_id"] == "user_admin"
+    assert env.pnm.tokens[0]["user_info"]["user_id"] == "lh_admin"
     assert env.pnm.tokens[0]["user_info"]["name"] == "Admin User"
 
     learner = await _join(db, people.learner, uuid)
     assert learner.join_url.endswith("tok-2")
     info = env.pnm.tokens[1]["user_info"]
-    assert info["is_admin"] is False and info["user_id"] == "user_regular"
+    assert info["is_admin"] is False and info["user_id"] == "lh_regular"
     creates = [c for c in env.pnm.calls if c[0] == "/room/create"]
     assert len(creates) == 1
 
@@ -488,10 +488,10 @@ async def test_attendance(env, db, people):
     created = await _create(db, people.admin)
     uuid = created[0].class_uuid
     room_id = "lh-" + uuid.removeprefix("liveclass_")
-    assert (await _hook(db, _event("participant_joined", room_id, "user_regular")))["result"] == "joined"
-    assert (await _hook(db, _event("participant_joined", room_id, "user_regular")))["result"] == "joined"  # reconnect
-    assert (await _hook(db, _event("participant_joined", room_id, "user_admin")))["result"] == "joined"
-    assert (await _hook(db, _event("participant_left", room_id, "user_regular")))["result"] == "left"
+    assert (await _hook(db, _event("participant_joined", room_id, "lh_regular")))["result"] == "joined"
+    assert (await _hook(db, _event("participant_joined", room_id, "lh_regular")))["result"] == "joined"  # reconnect
+    assert (await _hook(db, _event("participant_joined", room_id, "lh_admin")))["result"] == "joined"
+    assert (await _hook(db, _event("participant_left", room_id, "lh_regular")))["result"] == "left"
     report = await router.api_attendance(req(), uuid, current_user=people.admin, db=db)
     assert report.enabled
     by_user = {a.user_uuid: a for a in report.attendees}
@@ -510,9 +510,9 @@ async def test_attendance(env, db, people):
 @pytest.mark.parametrize(
     "event,result",
     [
-        (_event("participant_joined", "lh-quick-1", "user_regular"), "ignored"),
-        (_event("participant_joined", "not-ours", "user_regular"), "ignored"),
-        (_event("participant_joined", "lh-00000000-0000-0000-0000-000000000000", "user_regular"), "ignored"),
+        (_event("participant_joined", "lh-quick-1", "lh_regular"), "ignored"),
+        (_event("participant_joined", "not-ours", "lh_regular"), "ignored"),
+        (_event("participant_joined", "lh-00000000-0000-0000-0000-000000000000", "lh_regular"), "ignored"),
         ({"event": "room_started", "room": "bad"}, "ignored"),
     ],
 )
@@ -524,11 +524,14 @@ async def test_webhook_ignores_strangers_and_other_events(env, db, people):
     created = await _create(db, people.admin)
     room_id = "lh-" + created[0].class_uuid.removeprefix("liveclass_")
     for event in (
-        _event("participant_joined", room_id, "user_outsider"),
-        _event("participant_joined", room_id, "user_nobody"),
+        _event("participant_joined", room_id, "lh_outsider"),
+        _event("participant_joined", room_id, "lh_nobody"),
         _event("participant_joined", room_id),
+        # Raw LearnHouse UUIDs and bare prefixes are not identities we issue.
+        _event("participant_joined", room_id, "user_regular"),
+        _event("participant_joined", room_id, "lh_"),
         {"event": "participant_joined", "room": {"room_id": room_id}, "participant": "x"},
-        _event("track_published", room_id, "user_regular"),
+        _event("track_published", room_id, "lh_regular"),
     ):
         assert (await _hook(db, event))["result"] == "ignored"
 

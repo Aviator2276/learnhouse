@@ -83,6 +83,9 @@ class FakePlugNmeet:
         if path == "/room/getJoinToken":
             if room_id not in self.rooms:
                 return httpx.Response(200, json={"status": False, "msg": "room not active"})
+            if payload["user_info"]["user_id"].startswith("user_"):
+                # Real plugNmeet reserves this prefix (models/user_join.go).
+                return httpx.Response(200, json={"status": False, "msg": "user_id cannot start with the reserved pattern 'user_'"})
             if self.reject_profile_pic and "profile_pic" in payload["user_info"]["user_metadata"]:
                 return httpx.Response(200, json={"status": False, "msg": "profile_pic: must be a valid URI"})
             self.tokens.append(payload)

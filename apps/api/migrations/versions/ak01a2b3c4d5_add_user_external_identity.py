@@ -1,9 +1,9 @@
 """Add userexternalidentity (Authentik / OpenID Connect account links)
 
-Fork-only migration. It lives on its own Alembic branch (``authentik``) so new
-upstream migrations, which chain onto upstream's own head, never conflict with
-it: LearnHouse migrates with ``alembic upgrade heads`` (plural), which applies
-every branch.
+Fork-only migration (branch label ``authentik``). Fork migrations form one
+line after upstream's head; when an upstream release adds its own migrations,
+``.fork/merge_migration_heads.py`` (run by the upstream sync) adds a merge
+revision so the graph keeps the single head upstream's tests require.
 
 Revision ID: ak01a2b3c4d5
 Revises: f5a8b3d0c2e4

@@ -18,7 +18,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/Aviator2276/learnhouse/issues</Support>
   <Project>https://github.com/Aviator2276/learnhouse</Project>
-  <Overview>LearnHouse (open source LMS) with Authentik OpenID Connect single sign-on. Rebuilt automatically for every LearnHouse release and weekly for security patches.</Overview>
+  <Overview>LearnHouse (open source LMS) with Authentik OpenID Connect single sign-on and plugNmeet live classes. Rebuilt automatically for every LearnHouse release and weekly for security patches.</Overview>
   <Category>Productivity: Tools: Network:Web</Category>
   <WebUI>http://[IP]:[PORT:80]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/Aviator2276/learnhouse/main/deploy/unraid/learnhouse-authentik.xml</TemplateURL>
@@ -69,6 +69,14 @@
   <Config Name="Authentik: role mapping" Target="LEARNHOUSE_AUTHENTIK_ROLE_MAPPING" Default="" Mode="" Description="group=admin|maintainer|instructor|user, comma separated" Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Authentik: auto provision" Target="LEARNHOUSE_AUTHENTIK_AUTO_PROVISION" Default="true" Mode="" Description="Create accounts on first sign-in." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
   <Config Name="Authentik: bypass invites" Target="LEARNHOUSE_AUTHENTIK_BYPASS_INVITE" Default="false" Mode="" Description="Let Authentik users join invite-only orgs." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+
+  <Config Name="plugNmeet: enabled" Target="LEARNHOUSE_PLUGNMEET_ENABLED" Default="false" Mode="" Description="Live classes on your plugNmeet server. See docs/plugnmeet/README.md." Type="Variable" Display="always" Required="false" Mask="false">false</Config>
+  <Config Name="plugNmeet: server URL" Target="LEARNHOUSE_PLUGNMEET_SERVER_URL" Default="" Mode="" Description="How LearnHouse reaches plugNmeet, e.g. http://192.168.1.20:8080 (http only for LAN addresses)." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="plugNmeet: client URL" Target="LEARNHOUSE_PLUGNMEET_CLIENT_URL" Default="" Mode="" Description="What browsers open, e.g. https://meet.example.com" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="plugNmeet: API key" Target="LEARNHOUSE_PLUGNMEET_API_KEY" Default="plugnmeet" Mode="" Description="PLUG_N_MEET_API_KEY from plugNmeet's .env" Type="Variable" Display="always" Required="false" Mask="false">plugnmeet</Config>
+  <Config Name="plugNmeet: API secret" Target="LEARNHOUSE_PLUGNMEET_API_SECRET" Default="" Mode="" Description="PLUG_N_MEET_SECRET from plugNmeet's .env" Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="plugNmeet: attendance webhook" Target="LEARNHOUSE_PLUGNMEET_WEBHOOK_ENABLED" Default="false" Mode="" Description="Record attendance. Also set webhook_conf in plugNmeet's config.yaml." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="plugNmeet: meeting room" Target="LEARNHOUSE_PLUGNMEET_QUICK_ROOM" Default="true" Mode="" Description="One org-wide room admins and maintainers open on demand." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
 
   <Config Name="Development mode" Target="LEARNHOUSE_DEVELOPMENT_MODE" Default="False" Mode="" Description="Never True in production." Type="Variable" Display="advanced" Required="true" Mask="false">False</Config>
   <Config Name="Content delivery" Target="LEARNHOUSE_CONTENT_DELIVERY_TYPE" Default="filesystem" Mode="" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">filesystem</Config>

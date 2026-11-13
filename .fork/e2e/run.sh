@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Real end-to-end test: the LearnHouse image against a real Authentik.
+# Real end-to-end test: the LearnHouse image against a real Authentik, and
+# its plugNmeet live classes against a signature-checking plugNmeet stand-in.
 #
 #   .fork/e2e/run.sh <learnhouse-image> [authentik-version]
 #
-# Starts Postgres, Redis, Authentik (server + worker) and LearnHouse on a
-# private Docker network, configures Authentik as docs/authentik/README.md
-# says, signs in through a real browser, then ends the session in Authentik
-# and checks the back-channel logout revoked it in LearnHouse.
+# Starts Postgres, Redis, Authentik (server + worker), the plugNmeet stand-in
+# and LearnHouse on a private Docker network, configures Authentik as
+# docs/authentik/README.md says, signs in through a real browser, schedules
+# and starts a live class in the UI, sends signed attendance webhooks, then
+# ends the session in Authentik and checks the back-channel logout revoked
+# it in LearnHouse.
 # Needs: docker, python3, node + playwright (chromium).
 set -euo pipefail
 
@@ -18,18 +21,25 @@ NET=lh-e2e
 SUBNET=172.30.0.0/24
 LH_IP=172.30.0.10
 AK_IP=172.30.0.11
+PNM_IP=172.30.0.12
+# Any image with python3 runs the stand-in; default is the base image the build already uses.
+PNM_IMAGE="${PNM_IMAGE:-python:3.14.10-alpine3.24}"
+PNM_SECRET="e2e-pnm-secret-$(openssl rand -hex 16)"
+STATE_DIR=$(mktemp -d)
 TOKEN="e2e-bootstrap-token-$(openssl rand -hex 12)"
 mkdir -p "$OUT"
 
 cleanup() {
   if [ "${KEEP:-0}" != "1" ]; then
-    docker rm -f e2e-lh e2e-db e2e-redis e2e-ak-db e2e-ak-server e2e-ak-worker >/dev/null 2>&1 || true
+    docker rm -f e2e-lh e2e-db e2e-redis e2e-ak-db e2e-ak-server e2e-ak-worker e2e-pnm >/dev/null 2>&1 || true
     docker network rm "$NET" >/dev/null 2>&1 || true
   fi
+  rm -rf "$STATE_DIR"
 }
 trap cleanup EXIT
 dump_logs() {
   echo "----- learnhouse -----"; docker logs e2e-lh 2>&1 | grep -v "alembic.ddl" | tail -80 || true
+  echo "----- plugnmeet stand-in -----"; docker logs e2e-pnm 2>&1 | tail -20 || true
   echo "----- authentik -----"; docker logs e2e-ak-server 2>&1 | grep -E '"level": "(warning|error)"' | tail -20 | cut -c1-400 || true
 }
 
@@ -62,6 +72,8 @@ docker run -d --name e2e-ak-worker --network "$NET" "${AK_ENV[@]}" "ghcr.io/goau
 # --- LearnHouse dependencies --------------------------------------------------------
 docker run -d --name e2e-db --network "$NET" -e POSTGRES_USER=lh -e POSTGRES_PASSWORD=lh -e POSTGRES_DB=lh pgvector/pgvector:pg16 >/dev/null
 docker run -d --name e2e-redis --network "$NET" redis:7.4-alpine >/dev/null
+docker run -d --name e2e-pnm --network "$NET" --ip "$PNM_IP" -v "$HERE/fake_plugnmeet.py:/fake.py:ro" \
+  --entrypoint python3 "$PNM_IMAGE" -I /fake.py 8080 plugnmeet "$PNM_SECRET" "http://${LH_IP}/api/v1/plugnmeet/webhook" >/dev/null
 
 echo "Waiting for Authentik ${AK_VERSION}..."
 if ! wait_http "http://${AK_IP}:9000/-/health/ready/" 200 90; then dump_logs; exit 1; fi
@@ -91,17 +103,47 @@ docker run -d --name e2e-lh --network "$NET" --ip "$LH_IP" \
   -e LEARNHOUSE_AUTHENTIK_CLIENT_ID="$CLIENT_ID" -e LEARNHOUSE_AUTHENTIK_CLIENT_SECRET="$CLIENT_SECRET" \
   -e LEARNHOUSE_AUTHENTIK_REDIRECT_URI=http://learn.localhost/auth/callback/authentik \
   -e LEARNHOUSE_AUTHENTIK_ROLE_MAPPING=lh-admins=admin \
+  -e LEARNHOUSE_PLUGNMEET_ENABLED=true -e LEARNHOUSE_PLUGNMEET_SERVER_URL="http://${PNM_IP}:8080" \
+  -e LEARNHOUSE_PLUGNMEET_CLIENT_URL=https://meet.localhost -e LEARNHOUSE_PLUGNMEET_API_KEY=plugnmeet \
+  -e LEARNHOUSE_PLUGNMEET_API_SECRET="$PNM_SECRET" -e LEARNHOUSE_PLUGNMEET_PUBLIC_URL=http://learn.localhost \
+  -e LEARNHOUSE_PLUGNMEET_ALLOW_INSECURE_HTTP=true -e LEARNHOUSE_PLUGNMEET_WEBHOOK_ENABLED=true \
   "$IMAGE" >/dev/null
 echo "Waiting for LearnHouse..."
 if ! wait_http "http://${LH_IP}/api/v1/health" 200 60; then dump_logs; exit 1; fi
 
 # --- Browser sign-in ------------------------------------------------------------------
-if ! node "$HERE/login.cjs" "$LH_IP" "$AK_IP" "$OUT"; then dump_logs; exit 1; fi
+if ! node "$HERE/login.cjs" "$LH_IP" "$AK_IP" "$OUT" "$STATE_DIR/state.json"; then dump_logs; exit 1; fi
 
 LINK=$(docker exec e2e-db psql -U lh -d lh -tAc "select user_id || '|' || issuer from userexternalidentity")
 echo "identity link: $LINK"
 USER_ID=${LINK%%|*}
 [ -n "$USER_ID" ] || { echo "no identity link stored"; exit 1; }
+
+# --- Live classes (plugNmeet) ---------------------------------------------------------
+if ! LIVE_OUT=$(node "$HERE/live.cjs" "$LH_IP" "$STATE_DIR/state.json" "$OUT"); then echo "$LIVE_OUT"; dump_logs; exit 1; fi
+echo "$LIVE_OUT"
+CLASS_ID=$(sed -n 's/^LIVE_CLASS_ID=//p' <<<"$LIVE_OUT")
+ALICE_UUID=$(docker exec e2e-db psql -U lh -d lh -tAc "select user_uuid from \"user\" where id = ${USER_ID}")
+pnm() { curl --noproxy '*' -sf -X POST "http://${PNM_IP}:8080/__webhook" -H 'Content-Type: application/json' -d "$1"; }
+joined=$(pnm "{\"event\":\"participant_joined\",\"room_id\":\"lh-${CLASS_ID}\",\"identity\":\"${ALICE_UUID}\"}")
+grep -q '"result": "joined"' <<<"$joined" || { echo "signed webhook not accepted: $joined"; dump_logs; exit 1; }
+forged=$(pnm "{\"event\":\"participant_joined\",\"room_id\":\"lh-${CLASS_ID}\",\"identity\":\"${ALICE_UUID}\",\"token\":\"forged\"}")
+grep -q '"status": 401' <<<"$forged" || { echo "forged webhook not refused: $forged"; dump_logs; exit 1; }
+stays=$(docker exec e2e-db psql -U lh -d lh -tAc "select count(*) from liveclassattendance a join liveclass c on c.id = a.class_id where c.class_uuid = 'liveclass_${CLASS_ID}' and a.user_id = ${USER_ID}")
+[ "$stays" = "1" ] || { echo "attendance not recorded (rows: $stays)"; dump_logs; exit 1; }
+state=$(curl --noproxy '*' -sf "http://${PNM_IP}:8080/__state")
+python3 -I -c '
+import json, sys
+s = json.loads(sys.argv[1]); cid = sys.argv[2]
+assert not s["rejected"], "plugNmeet refused signatures: %s" % s["rejected"]
+room = s["rooms"]["lh-" + cid]["metadata"]
+assert room["logout_url"] == "http://learn.localhost/live-classes/" + cid, room["logout_url"]
+assert room["webhook_url"] == "http://learn.localhost/api/v1/plugnmeet/webhook", room
+host = [t for t in s["tokens"] if t["room_id"] == "lh-" + cid][0]["user_info"]
+assert host["is_admin"] is True and host["user_id"].startswith("user_"), host
+assert "lh-quick-1" in s["rooms"], "quick room was not created"
+' "$state" "$CLASS_ID" || { echo "unexpected plugNmeet state: $state"; dump_logs; exit 1; }
+echo "live classes: signed API calls, host token, attendance webhook and forged-webhook refusal OK"
 
 # --- Back-channel logout: end the session in Authentik ------------------------------
 for s in $(curl --noproxy '*' -sf -H "Authorization: Bearer $TOKEN" -H "Host: auth.localhost:9000" \
@@ -118,4 +160,4 @@ for _ in $(seq 1 30); do
 done
 if [ -z "$revoked" ]; then echo "back-channel logout did not revoke the LearnHouse session"; dump_logs; exit 1; fi
 echo "back-channel logout revoked sessions of user ${USER_ID}"
-echo "AUTHENTIK E2E PASSED (Authentik ${AK_VERSION})"
+echo "E2E PASSED (Authentik ${AK_VERSION}, plugNmeet live classes)"

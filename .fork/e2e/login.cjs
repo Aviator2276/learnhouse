@@ -1,8 +1,8 @@
 // Browser end-to-end: LearnHouse login page -> real Authentik -> back signed in.
-// Usage: node login.cjs <LH_IP> <AK_IP> <screenshot dir>
+// Usage: node login.cjs <LH_IP> <AK_IP> <screenshot dir> [save signed-in state to]
 const { chromium } = require('playwright')
 
-const [lhIp, akIp, outDir = '.'] = process.argv.slice(2)
+const [lhIp, akIp, outDir = '.', statePath] = process.argv.slice(2)
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a)
 
 async function main() {
@@ -65,6 +65,8 @@ try {
     body: JSON.stringify({ code: 'x', state: 'A'.repeat(43), binding: 'y' }),
   })).status)
   if (replay !== 400) throw new Error('forged callback was not refused: ' + replay)
+  // Hand the signed-in session to the live-class test.
+  if (statePath) await page.context().storageState({ path: statePath })
   log('E2E OK')
 } catch (e) {
   await page.screenshot({ path: `${outDir}/authentik-e2e-failure.png` }).catch(() => {})

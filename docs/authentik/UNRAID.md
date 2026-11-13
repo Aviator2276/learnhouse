@@ -49,6 +49,14 @@ browser ──https──► reverse proxy (SWAG / NPM / Traefik) ──http─�
 4. *Docker → Add Container → Template: learnhouse-authentik*, fill in the
    fields (secrets are masked), *Apply*.
 
+## Live classes (plugNmeet)
+
+If you run plugNmeet (for example on the same Unraid box), fill in the
+*plugNmeet* fields of the template, or the `LEARNHOUSE_PLUGNMEET_*` lines of
+`.env`. Use the LAN address for the server URL (`http://<unraid-ip>:8080`)
+and the public https address for the client URL. See
+[../plugnmeet/README.md](../plugnmeet/README.md).
+
 ## Updates
 
 New images are published automatically (every LearnHouse release, plus a

@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { getMenuColorClasses } from '@services/utils/ts/colorUtils'
 import { ShortcutHint } from '@components/Objects/Shortcuts/ShortcutHint'
 import { sitePages } from '@/lib/site-search/registry'
+import { useLiveClassesMenuItems } from '@components/LiveClasses/useLiveClassesMenuItem' // Fork: plugNmeet
 
 // Chord per builtin menu entry, read from the same registry the palette uses.
 const CHORD_BY_TYPE: Record<string, string | undefined> = Object.fromEntries(
@@ -47,6 +48,7 @@ export type OrgMenuItem = {
 export function useOrgMenuItems(orgslug: string): OrgMenuItem[] {
   const { t } = useTranslation()
   const org = useOrg() as any
+  const forkItems = useLiveClassesMenuItems(orgslug) // Fork: plugNmeet live classes
 
   const rf = org?.config?.config?.resolved_features
   const isEnabled = (feature: string) => rf?.[feature]?.enabled === true
@@ -86,7 +88,8 @@ export function useOrgMenuItems(orgslug: string): OrgMenuItem[] {
         shortcut: CHORD_BY_TYPE[item.type],
       }
     })
-    .filter(Boolean) as OrgMenuItem[]
+    .filter(Boolean)
+    .concat(forkItems) as OrgMenuItem[]
 }
 
 function MenuLinks(props: { orgslug: string; primaryColor?: string }) {

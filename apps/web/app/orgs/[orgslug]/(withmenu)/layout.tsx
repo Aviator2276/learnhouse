@@ -18,6 +18,7 @@ const PodcastPlayer = dynamic(() => import('@components/Objects/Podcasts/Podcast
 const SiteCommandPalette = dynamic(() => import('@components/Objects/Search/SiteCommandPalette'), { ssr: false })
 const ShortcutHelp = dynamic(() => import('@components/Objects/Shortcuts/ShortcutHelp'), { ssr: false })
 const LiveNowBanner = dynamic(() => import('@ee/components/LiveSessions/LiveNowBanner'), { ssr: false })
+const LiveClassesBanner = dynamic(() => import('@components/LiveClasses/LiveClassesBanner'), { ssr: false }) // Fork: plugNmeet
 import Image from 'next/image'
 import Link from 'next/link'
 import { PageViewTracker } from '@components/Analytics/PageViewTracker'
@@ -139,6 +140,7 @@ function LayoutContent({ children, orgslug }: { children: ReactNode; orgslug: st
       {!chromeless && <ShortcutHelp />}
       {!chromeless && <ChatDock orgslug={orgslug} />}
       {!chromeless && <LiveNowBanner orgslug={orgslug} />}
+      {!chromeless && <LiveClassesBanner orgslug={orgslug} />}
     </div>
   )
 }

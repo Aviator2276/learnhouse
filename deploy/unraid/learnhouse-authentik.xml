@@ -22,7 +22,7 @@
   <Category>Productivity: Tools: Network:Web</Category>
   <WebUI>http://[IP]:[PORT:80]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/Aviator2276/learnhouse/main/deploy/unraid/learnhouse-authentik.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/Aviator2276/learnhouse/main/apps/web/public/learnhouse_icon.png</Icon>
+  <Icon>https://raw.githubusercontent.com/Aviator2276/learnhouse/main/deploy/unraid/icon.png</Icon>
   <ExtraParams>--security-opt no-new-privileges:true --health-cmd "curl -fsS http://localhost/api/v1/health || exit 1" --health-interval 30s --health-start-period 90s</ExtraParams>
   <PostArgs/>
   <CPUset/>

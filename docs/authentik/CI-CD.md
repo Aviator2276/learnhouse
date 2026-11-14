@@ -164,7 +164,19 @@ ship CVE fixes sooner (currently 3.14.10 vs upstream's 3.14.7). It lives in
 `Dockerfile`, `apps/api/Dockerfile`, `apps/api/pyproject.toml` and
 `apps/api/uv.lock`. When upstream changes its own pin, the sync takes
 upstream's version of all four files automatically; if that version is still
-vulnerable, the security issue reopens and you can bump it again.
+vulnerable, the security issue reopens and you can bump it again. When
+upstream only changes a neighbouring line (such as the version next to
+`requires-python`), the sync takes upstream's file and puts the fork's pin back.
+
+### Rewritten upstream history
+
+Upstream has re-created release commits before (1.4.5 was built on a copy of
+1.4.4 with the same files but new commit ids, and the `1.4.4` tag was moved
+onto it). Without help, git would then report every upstream change as a
+conflict. The sync detects this: it finds the commit in the new release's
+history whose files match a release the fork already merged, records it as
+merged without changing any file (a `chore(upstream): link rewritten
+LearnHouse history` commit), and then merges the release normally.
 
 ### Upstream files the fork touches
 

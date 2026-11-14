@@ -49,6 +49,26 @@ fi
 
 echo "Merging LearnHouse ${target} (fork is on ${current})"
 git fetch --no-tags --quiet "$UPSTREAM_URL" "refs/tags/${target}:refs/tags/${target}"
+git fetch --no-tags --quiet "$UPSTREAM_URL" "+refs/tags/${current}:refs/tags/${current}" || true
+
+# Upstream has rewritten its history before: 1.4.5 sits on a re-created copy
+# of 1.4.4 (same files, new commit ids, and the 1.4.4 tag was moved onto it).
+# git then picks an old merge base and reports every upstream change since as
+# a conflict with the fork. Find the commit in the target's history with
+# exactly the files of a release commit already in the fork's history, and
+# record it as merged without changing any file, so the real merge below
+# starts from the right base.
+if ! git merge-base --is-ancestor "refs/tags/${target}" HEAD; then
+  merged_trees=$(git rev-list --format='%T' --no-commit-header HEAD | sort -u)
+  twin=$(git rev-list --first-parent --format='%H %T' --no-commit-header "refs/tags/${target}" \
+    | awk 'NR == FNR { seen[$1] = 1; next } ($2 in seen) { print $1; exit }' <(echo "$merged_trees") - || true)
+  if [ -n "$twin" ] && ! git merge-base --is-ancestor "$twin" HEAD; then
+    echo "Upstream rewrote its history: ${twin} has the same files as a release already merged; linking it."
+    git merge --quiet -s ours --no-edit -m "chore(upstream): link rewritten LearnHouse history" \
+      -m "Upstream re-created commits the fork already has (${twin} has the same files). Recorded as merged without changes so ${target} merges from the right base." \
+      "$twin"
+  fi
+fi
 
 set +e
 git merge --no-ff --no-commit "refs/tags/${target}"
@@ -75,8 +95,31 @@ git ls-files -- .github/workflows | sort -u | { grep -v '^\.github/workflows/for
 # conflict: take upstream's pin for ALL of these files together (they must
 # agree with each other), dropping the fork's bump. If upstream's version is
 # still vulnerable, the publish scan reopens the security issue.
+#
+# When upstream did NOT change its pin, a conflict there is only a neighbouring
+# line (e.g. the version bump next to requires-python): take upstream's file
+# and put the fork's pin back, so the fork keeps its security fix.
 PYTHON_PIN_FILES=(Dockerfile apps/api/Dockerfile apps/api/pyproject.toml apps/api/uv.lock)
+py_pin() { git show "$1:apps/api/Dockerfile" 2>/dev/null | sed -nE 's/^FROM python:([0-9]+\.[0-9]+\.[0-9]+)-.*/\1/p' | head -1; }
+next_patch() { awk -F. '{ printf "%s.%s.%d", $1, $2, $3 + 1 }' <<<"$1"; }
+fork_py=$(py_pin HEAD)
+upstream_py=$(py_pin "refs/tags/${target}")
+base_py=$(py_pin "refs/tags/${current}")
 unmerged=$(git diff --name-only --diff-filter=U || true)
+if [ -n "$fork_py" ] && [ "$upstream_py" = "$base_py" ] && [ "$fork_py" != "$upstream_py" ]; then
+  up_re=${upstream_py//./\\.}
+  for f in "${PYTHON_PIN_FILES[@]}"; do
+    grep -qxF "$f" <<<"$unmerged" || continue
+    echo "Keeping the fork's Python ${fork_py} pin in ${f} (upstream still pins ${upstream_py})"
+    git checkout "refs/tags/${target}" -- "$f"
+    sed -i -E \
+      -e "s/python:${up_re}-/python:${fork_py}-/" \
+      -e "s/>=${up_re}(, ?)<[0-9]+\.[0-9]+\.[0-9]+/>=${fork_py}\1<$(next_patch "$fork_py")/" \
+      "$f"
+    git add -- "$f"
+  done
+  unmerged=$(git diff --name-only --diff-filter=U || true)
+fi
 if grep -qxF -f <(printf '%s\n' "${PYTHON_PIN_FILES[@]}") <<<"$unmerged"; then
   echo "Upstream changed its Python pin; taking upstream's version of: ${PYTHON_PIN_FILES[*]}"
   git checkout "refs/tags/${target}" -- "${PYTHON_PIN_FILES[@]}"

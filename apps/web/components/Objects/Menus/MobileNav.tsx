@@ -14,6 +14,7 @@ import {
   ChalkboardSimple,
   ChatsCircle,
   User,
+  EnvelopeSimple,
   ShoppingBag,
   Globe,
   Book,
@@ -22,6 +23,7 @@ import {
   Check,
   SquaresFour,
 } from '@phosphor-icons/react'
+import { openEmailNotifications } from '@services/notifications/emailNotifications' // Fork: email notifications
 import { Dialog, DialogContent, DialogTitle } from '@components/ui/dialog'
 import UserAvatar from '@components/Objects/UserAvatar'
 import { useLHSession } from '@components/Contexts/LHSessionContext'
@@ -337,6 +339,15 @@ function MobileMoreSheet({
               )}
               <SheetRow href={getUriWithOrg(orgslug, '/account/purchases')} Icon={ShoppingBag} label={t('account.purchases')} />
               <SheetRow href={getUriWithOrg(orgslug, '/account/general')} Icon={User} label={t('user.user_settings')} />
+              {/* Fork: email notifications for communities and assignments */}
+              <SheetRow
+                onClick={() => {
+                  onOpenChange(false)
+                  openEmailNotifications()
+                }}
+                Icon={EnvelopeSimple}
+                label={t('email_notifications.title', { defaultValue: 'Email notifications' })}
+              />
             </SheetGroup>
           )}
 

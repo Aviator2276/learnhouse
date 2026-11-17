@@ -19,6 +19,7 @@ const SiteCommandPalette = dynamic(() => import('@components/Objects/Search/Site
 const ShortcutHelp = dynamic(() => import('@components/Objects/Shortcuts/ShortcutHelp'), { ssr: false })
 const LiveNowBanner = dynamic(() => import('@ee/components/LiveSessions/LiveNowBanner'), { ssr: false })
 const LiveClassesBanner = dynamic(() => import('@components/LiveClasses/LiveClassesBanner'), { ssr: false }) // Fork: plugNmeet
+const EmailNotificationsHost = dynamic(() => import('@components/EmailNotifications/EmailNotificationsHost'), { ssr: false }) // Fork: email notifications
 import Image from 'next/image'
 import Link from 'next/link'
 import { PageViewTracker } from '@components/Analytics/PageViewTracker'
@@ -141,6 +142,7 @@ function LayoutContent({ children, orgslug }: { children: ReactNode; orgslug: st
       {!chromeless && <ChatDock orgslug={orgslug} />}
       {!chromeless && <LiveNowBanner orgslug={orgslug} />}
       {!chromeless && <LiveClassesBanner orgslug={orgslug} />}
+      {!chromeless && <EmailNotificationsHost />}
     </div>
   )
 }

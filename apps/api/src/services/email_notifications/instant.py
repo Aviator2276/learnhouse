@@ -50,6 +50,8 @@ logger = logging.getLogger(__name__)
 LOOKBACK = timedelta(days=2)
 MAX_ROWS = 2000
 CURSOR_ID = 1
+# More members than this named in one post are not treated as mentioned.
+MAX_MENTIONS = 20
 
 
 def _ready(rows: list, now: datetime, delay: timedelta) -> list:
@@ -187,6 +189,10 @@ async def run_instant(db: AsyncSession, now: Optional[datetime] = None) -> Stats
         readers = await audience.readers(db, community)
         names = usernames[community.org_id]
         mentioned = {names[name] for name in mentioned_usernames(text) if name in names}
+        if len(mentioned) > MAX_MENTIONS:
+            # A post naming half the school is not a personal mention; do
+            # not let it email people who asked for mentions only.
+            mentioned = set()
         if comment is None:
             involved: set = set()
             by_staff = author_id in await audience.instructors(db, community)

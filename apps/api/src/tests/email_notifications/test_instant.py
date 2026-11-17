@@ -472,3 +472,16 @@ async def test_no_email_without_a_public_address(db, school, outbox, monkeypatch
     await start(db)
     await add_discussion(db, school.general, school.teacher.id)
     assert (await run(db)).emails == 0 and outbox.sent == []
+
+
+async def test_mass_mention_is_not_treated_as_a_mention(db, school, outbox):
+    for n in range(25):
+        await add_member(db, 1, 100 + n, f"pupil{n}")
+    await set_settings(db, default_level="mentions")
+    await start(db)
+    everyone = " ".join(f"@pupil{n}" for n in range(25))
+    await add_discussion(db, school.general, school.sam.id, "Hi all", everyone)
+    await add_discussion(db, school.general, school.sam.id, "Hi some", "@pupil1 @pupil2")
+    await run(db)
+    assert outbox.recipients == {"pupil1@test.com", "pupil2@test.com"}
+    assert "Hi all" not in outbox.to("pupil1@test.com")[0]["body"]

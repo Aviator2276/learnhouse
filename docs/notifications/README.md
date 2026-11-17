@@ -108,6 +108,8 @@ Optional:
 - A due date without a time counts for the whole day. "1 day before" a
   Friday deadline is Thursday.
 - No one is emailed about their own post.
+- A post that names more than 20 members is not treated as a mention of any
+  of them, so one post cannot email the whole school.
 
 ## Security
 

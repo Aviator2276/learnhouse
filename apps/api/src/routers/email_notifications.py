@@ -321,9 +321,15 @@ async def api_send_test(
             detail={"code": "RATE_LIMITED", "message": "Too many test emails. Try again in a few minutes.", "retry_after": retry_after},
         )
     user = await db.get(User, membership.user_id)
-    look = await load_org_look(db, org_id)
-    if user is None or not user.email or look is None:
+    look = await load_org_look(db, org_id) if user is not None and user.email else None
+    if user is None or not user.email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Your account has no email address")
+    if look is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="This server has no public address configured, so emails cannot link back to it. "
+            "Set LEARNHOUSE_DOMAIN or LEARNHOUSE_PLATFORM_URL.",
+        )
 
     audience = await load_org_audience(db, org_id)
     threads = await week_threads(db, org_id, datetime.now())

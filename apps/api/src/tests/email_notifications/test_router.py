@@ -210,6 +210,19 @@ async def test_test_email_failures(db, school, outbox, limiter, monkeypatch):
     assert exc.value.status_code == 400
 
 
+async def test_test_email_needs_a_public_address(db, school, outbox, limiter, monkeypatch):
+    from src.services.email_notifications import delivery
+
+    async def nowhere(slug, db=None, org_id=None):
+        return ""
+
+    monkeypatch.setattr(delivery, "org_base_url", nowhere)
+    with pytest.raises(HTTPException) as exc:
+        await router.api_send_test(1, router.TestIn(kind="digest"), current_user=school.admin, db=db)
+    assert exc.value.status_code == 503 and "LEARNHOUSE_PLATFORM_URL" in exc.value.detail
+    assert outbox.sent == []
+
+
 async def test_test_email_is_rate_limited(db, school, outbox, monkeypatch):
     seen = {}
 

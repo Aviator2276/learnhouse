@@ -40,10 +40,18 @@ async def load_org_look(db: AsyncSession, org_id: int) -> OrgLook | None:
     org_config = (await db.execute(
         select(OrganizationConfig).where(OrganizationConfig.org_id == org_id)
     )).scalars().first()
+    base_url = await org_base_url(org.slug, db, org.id)
+    if not base_url:
+        # Without a public address every link in the email would be dead.
+        logger.warning(
+            "Notification emails skipped: no public address is configured. "
+            "Set LEARNHOUSE_DOMAIN or LEARNHOUSE_PLATFORM_URL."
+        )
+        return None
     return OrgLook(
         org=org,
         branding=resolve_org_email_branding(org, org_config, None),
-        base_url=await org_base_url(org.slug, db, org.id),
+        base_url=base_url,
     )
 
 

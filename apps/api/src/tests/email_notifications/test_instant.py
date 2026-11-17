@@ -459,3 +459,16 @@ async def test_roles_with_odd_rights_grant_nothing(db, org, outbox, rights):
     await add_discussion(db, community, 1)
     assert (await run(db)).emails == 0
     assert (await db.execute(select(EmailNotificationCursor))).scalars().one().last_discussion_id == 1
+
+
+async def test_no_email_without_a_public_address(db, school, outbox, monkeypatch):
+    """Links would point nowhere, so nothing is sent at all."""
+    from src.services.email_notifications import delivery
+
+    async def nowhere(slug, db=None, org_id=None):
+        return ""
+
+    monkeypatch.setattr(delivery, "org_base_url", nowhere)
+    await start(db)
+    await add_discussion(db, school.general, school.teacher.id)
+    assert (await run(db)).emails == 0 and outbox.sent == []

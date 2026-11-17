@@ -246,10 +246,12 @@ export default function EmailNotificationSettings() {
               </select>
             </Row>
             <p className="pt-2.5 text-xs text-gray-500">
-              {t('email_notifications.admin.delay', {
-                defaultValue: 'New posts are emailed about {{count}} minutes after they are written, so authors can still fix them.',
-                count: settings.delay_minutes,
-              })}{' '}
+              {settings.delay_minutes > 0
+                ? t('email_notifications.admin.delay', {
+                    defaultValue: 'New posts are emailed about {{count}} minutes after they are written, so authors can still fix them.',
+                    count: settings.delay_minutes,
+                  })
+                : t('email_notifications.admin.no_delay', { defaultValue: 'New posts are emailed within five minutes.' })}{' '}
               {settings.last_digest_at
                 ? t('email_notifications.admin.last_digest', {
                     defaultValue: 'Last digest: {{when}}.',
@@ -273,16 +275,21 @@ export default function EmailNotificationSettings() {
               />
             </Row>
             {form.assignments_enabled && (
-              <Row
-                title={t('email_notifications.admin.reminder_default', { defaultValue: 'Default reminder' })}
-                hint={t('email_notifications.admin.reminder_hint', { defaultValue: "Only sent to learners who haven't submitted." })}
-              >
+              <div className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800">
+                    {t('email_notifications.admin.reminder_default', { defaultValue: 'Default reminder' })}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {t('email_notifications.admin.reminder_hint', { defaultValue: "Only sent to learners who haven't submitted." })}
+                  </p>
+                </div>
                 <Segmented<ReminderDays>
                   value={form.assignment_reminder_days}
                   options={REMINDER_DAYS.map((days) => ({ value: days, label: reminderLabel(days, t) }))}
                   onChange={(days) => set('assignment_reminder_days', days)}
                 />
-              </Row>
+              </div>
             )}
           </Card>
 

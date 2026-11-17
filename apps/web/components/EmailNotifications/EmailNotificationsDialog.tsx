@@ -113,7 +113,7 @@ export default function EmailNotificationsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg p-0 overflow-hidden" onOpenAutoFocus={(e) => e.preventDefault()}>
-        <DialogHeader className="px-5 py-4 border-b border-gray-100 space-y-0">
+        <DialogHeader className="ps-5 pe-14 py-4 border-b border-gray-100 space-y-0 text-start">
           <DialogTitle className="text-xl font-semibold text-gray-900">{title}</DialogTitle>
           <DialogDescription className="text-sm text-gray-500">
             {t('email_notifications.description', {
@@ -282,13 +282,16 @@ export default function EmailNotificationsDialog({
               />
             </Row>
             {prefs.assignment_reminders && (
-              <Row title={t('email_notifications.remind_me', { defaultValue: 'Remind me' })}>
+              <div className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium text-gray-800">
+                  {t('email_notifications.remind_me', { defaultValue: 'Remind me' })}
+                </p>
                 <Segmented<ReminderDays>
                   value={prefs.assignment_reminder_days}
                   options={REMINDER_DAYS.map((days) => ({ value: days, label: reminderLabel(days, t) }))}
                   onChange={(days) => update((p) => ({ ...p, assignment_reminder_days: days }))}
                 />
-              </Row>
+              </div>
             )}
           </Section>
         </div>

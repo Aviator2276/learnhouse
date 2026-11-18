@@ -185,7 +185,8 @@ new files.
 
 | File | Change |
 | --- | --- |
-| `apps/api/src/router.py` | mounts `/auth/authentik` and `/plugnmeet` |
+| `apps/api/src/router.py` | mounts `/auth/authentik`, `/plugnmeet` and `/email-notifications` |
+| `apps/api/src/core/events/events.py` | starts and stops the notification email scheduler |
 | `apps/api/src/security/session_context.py` | `AUTH_METHOD_AUTHENTIK` constant |
 | `apps/api/src/services/orgs/auth_policy.py` | label for the method |
 | `apps/api/src/services/orgs/mfa_policy.py` | Authentik counts as an external IdP |
@@ -197,7 +198,8 @@ new files.
 | `apps/web/components/Contexts/AuthContext.tsx` | single logout |
 | `Dockerfile`, `apps/api/Dockerfile`, `apps/api/pyproject.toml`, `apps/api/uv.lock` | Python patch version (auto-resolved on sync) |
 | `apps/web/components/Objects/Menus/OrgMenuLinks.tsx` | Live classes menu entry |
-| `apps/web/app/orgs/[orgslug]/(withmenu)/layout.tsx` | live-now banner |
+| `apps/web/app/orgs/[orgslug]/(withmenu)/layout.tsx` | live-now banner, email notification dialog |
+| `apps/web/components/Security/HeaderProfileBox.tsx`, `apps/web/components/Objects/Menus/MobileNav.tsx` | "Email notifications" entry in the profile menu |
 | `apps/web/app/orgs/[orgslug]/(withmenu)/course/[courseuuid]/course.tsx` | course page live-classes box |
 | `docker/nginx.conf` | internal upstreams use `127.0.0.1` instead of `localhost` (POSTs failed with 502 on IPv6-enabled Docker hosts); re-applied automatically after every sync |
 
@@ -212,7 +214,16 @@ for live classes `apps/api/src/services/plugnmeet/`,
 `apps/api/src/routers/plugnmeet.py`, `apps/api/src/db/live_classes.py`,
 `apps/api/src/tests/plugnmeet/`, `apps/web/components/LiveClasses/`,
 `apps/web/services/plugnmeet/`, `apps/web/app/orgs/[orgslug]/(withmenu)/live-classes/`,
-`apps/web/tests/plugnmeet-live-classes.test.mjs`; and `.fork/`, `.github/`,
+`apps/web/tests/plugnmeet-live-classes.test.mjs`; for email notifications
+`apps/api/src/services/email_notifications/`,
+`apps/api/src/routers/email_notifications.py`,
+`apps/api/src/db/email_notifications.py`,
+`apps/api/migrations/versions/en01a2b3c4d5_*`,
+`apps/api/src/tests/email_notifications/`,
+`apps/web/components/EmailNotifications/`, `apps/web/services/notifications/`,
+`apps/web/app/orgs/[orgslug]/(withmenu)/email-notifications/`,
+`apps/web/app/orgs/[orgslug]/dash/email-notifications/`,
+`apps/web/tests/email-notifications.test.mjs`; and `.fork/`, `.github/`,
 `deploy/`, `docs/`.
 
 ### Database migrations

@@ -24,6 +24,11 @@ on:
       - "apps/api/src/db/live_classes.py"
       - "apps/web/services/plugnmeet/**"
       - "apps/web/components/LiveClasses/**"
+      - "apps/api/src/services/email_notifications/**"
+      - "apps/api/src/routers/email_notifications.py"
+      - "apps/api/src/db/email_notifications.py"
+      - "apps/web/services/notifications/**"
+      - "apps/web/components/EmailNotifications/**"
 
 permissions:
   contents: read

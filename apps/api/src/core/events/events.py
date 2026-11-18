@@ -86,6 +86,10 @@ def startup_app(app: FastAPI) -> Callable:
         from src.services.messaging.scheduler import start_scheduler as start_messaging_emails
         start_messaging_emails()
 
+        # Fork: community email notifications and the weekly digest. Never raises.
+        from src.services.email_notifications.scheduler import start_scheduler as start_community_emails
+        start_community_emails()
+
         # The shared demo organization refreshes itself on an interval, so the
         # feature needs no external scheduler. No-op unless
         # LEARNHOUSE_DEMO_ENABLED; never raises.
@@ -166,6 +170,9 @@ def shutdown_app(app: FastAPI) -> Callable:
         await stop_drip_scheduler()
         from src.services.messaging.scheduler import stop_scheduler as stop_messaging_emails
         await stop_messaging_emails()
+        # Fork: community email notifications.
+        from src.services.email_notifications.scheduler import stop_scheduler as stop_community_emails
+        await stop_community_emails()
         # Stop the demo refresh tick.
         from src.services.demo.scheduler import stop_scheduler as stop_demo_scheduler
         await stop_demo_scheduler()

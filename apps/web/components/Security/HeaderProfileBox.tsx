@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react'
 
 import Link from 'next/link'
-import { Crown, Shield, User, Users, SignOut, CaretDown, Globe, Check, ShoppingBag, House, Buildings, Plus, CreditCard } from '@phosphor-icons/react'
+import { Crown, Shield, User, Users, SignOut, CaretDown, Globe, Check, ShoppingBag, House, Buildings, Plus, CreditCard, EnvelopeSimple } from '@phosphor-icons/react'
 import UserAvatar from '@components/Objects/UserAvatar'
 import useAdminStatus, { seesPlatformHubFromSession } from '@components/Hooks/useAdminStatus'
 import { useLHSession } from '@components/Contexts/LHSessionContext'
@@ -29,6 +29,7 @@ import { AVAILABLE_LANGUAGES } from '@/lib/languages'
 import LanguageSwitcher from '@components/Utils/LanguageSwitcher'
 import { useLHAnalytics, AnalyticsEvent } from '@services/analytics'
 import { getMenuColorClasses } from '@services/utils/ts/colorUtils'
+import { openEmailNotifications } from '@services/notifications/emailNotifications' // Fork: email notifications
 
 interface RoleInfo {
   name: string;
@@ -256,6 +257,11 @@ export const HeaderProfileBox = ({ primaryColor = '' }: { primaryColor?: string 
                     <User size={16} weight="fill" />
                     <span>{t('user.user_settings')}</span>
                   </Link>
+                </DropdownMenuItem>
+                {/* Fork: email notifications for communities and assignments */}
+                <DropdownMenuItem onClick={openEmailNotifications} className="flex items-center space-x-2">
+                  <EnvelopeSimple size={16} weight="fill" />
+                  <span>{t('email_notifications.title', { defaultValue: 'Email notifications' })}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href={getUriWithOrg(org?.slug, '/account/purchases')} className="flex items-center space-x-2">

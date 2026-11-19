@@ -42,7 +42,9 @@ Also scheduled:
 
 - **fork-ci.yml, Wednesdays**: the whole CI again, with the end-to-end test
   run against Authentik's **latest** release, so a breaking Authentik change
-  shows up before you upgrade your own Authentik.
+  shows up before you upgrade your own Authentik. The version is looked up
+  from Authentik's release tags (it publishes no `latest` image), and the
+  same happens when you start CI by hand. Pull requests keep a pinned version.
 
 - **fork-publish.yml, Mondays**: rebuilds from fresh base images so OS-level
   security fixes ship even without a LearnHouse release.

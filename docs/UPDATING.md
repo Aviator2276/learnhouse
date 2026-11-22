@@ -54,18 +54,48 @@ backup above as a User Script if you do this.
 
 ### Roll back
 
-Every published version stays available. In the container template, change
-the repository from `ghcr.io/aviator2276/learnhouse:latest` to an earlier tag
-(see **GitHub → your profile → Packages → learnhouse** for the list, for
-example `1.4.5-f16877d`), apply, and restore the database backup if the
-newer version already changed it:
+Every published version stays available. In the container template (or
+`docker-compose.yml`), change the image from
+`ghcr.io/aviator2276/learnhouse:latest` to an earlier tag (see **GitHub →
+your profile → Packages → learnhouse** for the list, for example
+`1.4.5-f16877d`) and apply. If the newer version already changed the
+database, restore the backup too (below).
+
+### Restore the database from a backup
+
+Use this after a bad update, or when the app logs `database "learnhouse"
+does not exist` or `no pg_hba.conf entry`, which mean Postgres is running on
+an empty or broken data folder. It moves the old folder aside instead of
+deleting it. Run it in the folder that holds your `docker-compose.yml`:
 
 ```bash
-gunzip -c /mnt/user/backups/learnhouse-YYYY-MM-DD.sql.gz | docker exec -i learnhouse-db psql -U learnhouse learnhouse
+docker compose down
 ```
 
-Restore into an empty database: stop `learnhouse`, then drop and recreate the
-`learnhouse` database (or restore the copied appdata folder) before running it.
+```bash
+mv /mnt/user/appdata/learnhouse/postgres /mnt/user/appdata/learnhouse/postgres.old-$(date +%F)
+```
+
+```bash
+docker compose up -d db
+```
+
+Wait until `docker logs learnhouse-db` shows "database system is ready to
+accept connections" (about 20 seconds), then load the backup and start
+everything:
+
+```bash
+gunzip -c /mnt/user/backups/learnhouse-YYYY-MM-DD.sql.gz | docker exec -i learnhouse-db psql -U learnhouse -d learnhouse
+```
+
+```bash
+docker compose up -d
+```
+
+Once the site works, delete the `postgres.old-…` folder.
+
+Back up with `pg_dump` as shown above, not by copying the `postgres` folder
+while the database is running: a copy taken mid-write can be unusable.
 
 ## Run the automations by hand
 

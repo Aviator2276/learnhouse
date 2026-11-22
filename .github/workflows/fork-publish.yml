@@ -64,8 +64,12 @@ jobs:
           build-args: |
             LEARNHOUSE_PUBLIC=true
             BUILD_ID=${{ github.sha }}
-          # The weekly run rebuilds from fresh base images on purpose.
-          no-cache: ${{ github.event_name == 'schedule' }}
+          # The final stages run "apk upgrade", so they are always rebuilt:
+          # a cached copy would keep Alpine packages (nginx, openssl...) from
+          # whenever the cache was made. The weekly and manual runs rebuild
+          # everything from fresh base images.
+          no-cache-filters: runner,frontend-runner
+          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
           pull: true
           cache-from: type=gha,scope=amd64
           cache-to: type=gha,mode=max,scope=amd64

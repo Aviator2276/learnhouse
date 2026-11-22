@@ -22,6 +22,7 @@ and adds **Authentik (OpenID Connect) sign-in**, **live classes on plugNmeet** a
 | Set up live classes (plugNmeet) | [docs/plugnmeet/README.md](docs/plugnmeet/README.md) |
 | Set up email notifications | [docs/notifications/README.md](docs/notifications/README.md) |
 | Run it on Unraid | [docs/authentik/UNRAID.md](docs/authentik/UNRAID.md) |
+| Keep it up to date (routine updates, what to do when something fails) | [docs/UPDATING.md](docs/UPDATING.md) |
 | How updates, tests and security scans work | [docs/authentik/CI-CD.md](docs/authentik/CI-CD.md) |
 | Image | `ghcr.io/aviator2276/learnhouse:latest` (amd64, signed) |
 

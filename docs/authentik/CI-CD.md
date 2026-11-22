@@ -1,5 +1,8 @@
 # CI/CD and automatic updates
 
+The owner's checklist for routine updates is [../UPDATING.md](../UPDATING.md).
+This page covers the one-time setup and how the pipeline works.
+
 ```
 LearnHouse releases X.Y.Z
         │  (daily check, 05:23 UTC)
@@ -47,7 +50,9 @@ Also scheduled:
   same happens when you start CI by hand. Pull requests keep a pinned version.
 
 - **fork-publish.yml, Mondays**: rebuilds from fresh base images so OS-level
-  security fixes ship even without a LearnHouse release.
+  security fixes ship even without a LearnHouse release. A manual run does
+  the same. Every other build also re-runs the image's final stages (where
+  `apk upgrade` runs), so cached layers never hold back Alpine packages.
 - **fork-codeql.yml, Sundays** (and on PRs touching auth code): CodeQL
   `security-extended` for Python, TypeScript and the workflows themselves.
   Findings appear under **Security → Code scanning**.

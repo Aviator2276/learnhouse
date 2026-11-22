@@ -293,6 +293,9 @@ jobs:
           build-args: |
             LEARNHOUSE_PUBLIC=true
             BUILD_ID=${{ github.sha }}
+          # Same as the publish workflow: current Alpine packages in the final
+          # stages, so the image scan below sees what would be published.
+          no-cache-filters: runner,frontend-runner
           cache-from: type=gha,scope=amd64
           cache-to: type=gha,mode=max,scope=amd64
 

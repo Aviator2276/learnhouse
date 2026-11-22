@@ -293,6 +293,9 @@ jobs:
           build-args: |
             LEARNHOUSE_PUBLIC=true
             BUILD_ID=${{ github.sha }}
+          # Same as the publish workflow: current Alpine packages in the final
+          # stages, so the image scan below sees what would be published.
+          no-cache-filters: runner,frontend-runner
           cache-from: type=gha,scope=amd64
           cache-to: type=gha,mode=max,scope=amd64
 
@@ -364,11 +367,27 @@ jobs:
 
       - name: Real Authentik + live classes end-to-end (browser sign-in, role mapping, plugNmeet, back-channel logout)
         env:
-          # Pinned on PRs for reproducibility; the weekly run tracks Authentik's latest.
-          AUTHENTIK_VERSION: ${{ github.event_name == 'schedule' && 'latest' || '2026.8.5' }}
+          # Pinned on PRs for reproducibility. The weekly and manual runs use the
+          # newest stable Authentik release instead (resolved below: Authentik
+          # publishes no "latest" image tag, only version numbers).
+          AUTHENTIK_PINNED: "2026.8.5"
+          TRACK_LATEST: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
           PLAYWRIGHT_VERSION: "1.63.0"
           E2E_OUT: ${{ runner.temp }}/authentik-e2e
         run: |
+          AUTHENTIK_VERSION="$AUTHENTIK_PINNED"
+          if [ "$TRACK_LATEST" = "true" ]; then
+            # Stable releases are tagged version/YYYY.M.P; release candidates are skipped.
+            AUTHENTIK_VERSION=$(git ls-remote --tags --refs https://github.com/goauthentik/authentik.git 'version/*' \
+              | sed -n 's#.*refs/tags/version/##p' | grep -E '^[0-9]{4}\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+            if [ -z "$AUTHENTIK_VERSION" ]; then
+              echo "::error::Could not find the newest Authentik release"; exit 1
+            fi
+            if [ "$AUTHENTIK_VERSION" != "$AUTHENTIK_PINNED" ]; then
+              echo "::notice::Testing Authentik $AUTHENTIK_VERSION (pull requests pin $AUTHENTIK_PINNED)"
+            fi
+          fi
+          echo "Authentik version: $AUTHENTIK_VERSION"
           docker rm -f app db redis >/dev/null 2>&1 || true
           (cd .fork/e2e && npm install --no-save --no-package-lock --silent "playwright@${PLAYWRIGHT_VERSION}" \
             && npx --no-install playwright install --with-deps chromium >/dev/null)
